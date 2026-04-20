@@ -1,0 +1,48 @@
+# Anansi — Arrival Rate Sweep
+# Validates M/G/1 queuing model predictions against empirical cold-start probability
+# Tests at 5 arrival rates: 0.1, 0.5, 1.0, 5.0, 10.0 req/min
+
+testbed:
+  namespace: kserve-bench
+  gpu_device: "nvidia.com/gpu"
+  minio_endpoint: http://minio.default:9000
+  minio_bucket: models
+
+matrix:
+  runtimes:
+    - name: llamacpp-pipelined
+      image: ghcr.io/anansi-bench/kserve-llamacpp:latest
+      runtime_class: ClusterServingRuntime/llamacpp
+      loader: pipelined
+      loader_args: "--n-streams 4 --prefault"
+  formats:
+    - name: gguf-q4km
+      path: "s3://models/{model}/q4_k_m.gguf"
+  models:
+    - name: phi3-mini-3.8b
+      size_gb: 7.6
+  caching:
+    - name: lmc
+      local_model_cache: true
+  scenarios:
+    - name: s2-lmc-cold
+      caching: lmc
+      drop_page_cache: true
+
+experiment:
+  repetitions: 1
+  cooldown_seconds: 5
+  timeout_seconds: 300
+  prompt: "Hello"
+  max_tokens: 1
+
+sweep:
+  mode: arrival_rate
+  rates: [0.1, 0.5, 1.0, 5.0, 10.0]  # req/min
+  duration_minutes: 30
+  idle_timeout_seconds: 30
+  config:
+    runtime: llamacpp-pipelined
+    format: gguf-q4km
+    model: phi3-mini-3.8b
+    scenario: s2-lmc-cold

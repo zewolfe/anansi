@@ -1,0 +1,86 @@
+# Anansi — Full Experimental Matrix
+# Matches thesis proposal v7 experimental design
+# Expected: ~36 valid configurations × 10 reps = 360 trials
+
+testbed:
+  namespace: kserve-bench
+  gpu_device: "nvidia.com/gpu"
+  minio_endpoint: http://minio.default:9000
+  minio_bucket: models
+
+matrix:
+  runtimes:
+    - name: llamacpp-default
+      image: ghcr.io/anansi-bench/kserve-llamacpp:latest
+      runtime_class: ClusterServingRuntime/llamacpp
+      loader: default
+
+    - name: llamacpp-pipelined
+      image: ghcr.io/anansi-bench/kserve-llamacpp:latest
+      runtime_class: ClusterServingRuntime/llamacpp
+      loader: pipelined
+      loader_args: "--n-streams 4 --prefault"
+
+    - name: vllm-default
+      image: kserve/vllm-inference-server:latest
+
+    - name: vllm-faststart
+      image: kserve/vllm-inference-server:latest
+      env:
+        PYTORCH_COMPILE: "0"
+        VLLM_NUM_CUDA_GRAPHS: "4"
+        VLLM_COMPILE_CACHE_DIR: "/mnt/compile-cache"
+
+  formats:
+    - name: safetensors-fp16
+      path: "s3://models/{model}/fp16/"
+
+    - name: gguf-q8
+      path: "s3://models/{model}/q8_0.gguf"
+
+    - name: gguf-q4km
+      path: "s3://models/{model}/q4_k_m.gguf"
+
+  models:
+    - name: phi3-mini-3.8b
+      size_gb: 7.6
+
+    - name: llama3-8b
+      size_gb: 16.1
+
+    - name: llama2-13b
+      size_gb: 26.0
+
+  caching:
+    - name: remote
+      local_model_cache: false
+
+    - name: lmc
+      local_model_cache: true
+
+  scenarios:
+    - name: s1-remote-cold
+      caching: remote
+      drop_page_cache: true
+
+    - name: s2-lmc-cold
+      caching: lmc
+      drop_page_cache: true
+
+    - name: s3-lmc-warm
+      caching: lmc
+      drop_page_cache: false
+
+  # Invalid combinations: vLLM cannot serve GGUF; llama.cpp cannot serve SafeTensors
+  exclusions:
+    - runtime: "vllm-*"
+      format: "gguf-*"
+    - runtime: "llamacpp-*"
+      format: "safetensors-fp16"
+
+experiment:
+  repetitions: 10
+  cooldown_seconds: 30
+  timeout_seconds: 300
+  prompt: "Hello"
+  max_tokens: 1

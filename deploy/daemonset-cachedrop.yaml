@@ -1,0 +1,107 @@
+---
+# Anansi Cache Drop DaemonSet
+# Deploys a privileged container on each node that exposes
+# an HTTP endpoint to drop the Linux page cache.
+#
+# Usage:
+#   kubectl apply -f deploy/daemonset-cachedrop.yaml
+#   curl http://<node-ip>:30999/drop   →  "ok\n"
+#
+# Security: This runs as privileged and writes to /proc/sys/vm/drop_caches.
+#           Only deploy in isolated benchmark environments.
+#           Remove after benchmarking is complete.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kserve-bench
+  labels:
+    app.kubernetes.io/part-of: anansi
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: anansi-cachedrop
+  namespace: kserve-bench
+  labels:
+    app.kubernetes.io/name: anansi-cachedrop
+    app.kubernetes.io/part-of: anansi
+spec:
+  selector:
+    matchLabels:
+      app: anansi-cachedrop
+  template:
+    metadata:
+      labels:
+        app: anansi-cachedrop
+    spec:
+      hostPID: true
+      tolerations:
+        - operator: Exists  # schedule on all nodes including GPU nodes
+      containers:
+        - name: cachedrop
+          image: alpine:3.19
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              apk add --no-cache socat &&
+              echo "Anansi cache-drop agent ready on :9999" &&
+              socat TCP-LISTEN:9999,fork,reuseaddr SYSTEM:'
+                read METHOD PATH VERSION
+                case "$PATH" in
+                  /drop)
+                    sync
+                    echo 3 > /proc/sys/vm/drop_caches
+                    BODY="ok"
+                    ;;
+                  /health)
+                    BODY="healthy"
+                    ;;
+                  *)
+                    BODY="unknown endpoint"
+                    ;;
+                esac
+                LEN=$(echo -n "$BODY" | wc -c)
+                printf "HTTP/1.1 200 OK\r\nContent-Length: %d\r\nContent-Type: text/plain\r\n\r\n%s" "$LEN" "$BODY"
+              '
+          securityContext:
+            privileged: true
+          ports:
+            - name: http
+              containerPort: 9999
+              hostPort: 9999
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9999
+            initialDelaySeconds: 5
+            periodSeconds: 30
+
+---
+# Optional: NodePort service for easy access from the harness
+apiVersion: v1
+kind: Service
+metadata:
+  name: anansi-cachedrop
+  namespace: kserve-bench
+  labels:
+    app.kubernetes.io/name: anansi-cachedrop
+    app.kubernetes.io/part-of: anansi
+spec:
+  type: NodePort
+  selector:
+    app: anansi-cachedrop
+  ports:
+    - port: 9999
+      targetPort: 9999
+      nodePort: 30999
+      protocol: TCP

@@ -1,0 +1,44 @@
+# Anansi — Smoke Test
+# Quick sanity check: 2 configs × 3 reps = 6 trials
+# Use this to validate the harness before running the full matrix
+
+testbed:
+  namespace: kserve-bench
+  gpu_device: "nvidia.com/gpu"
+  minio_endpoint: http://minio.default:9000
+  minio_bucket: models
+
+matrix:
+  runtimes:
+    - name: llamacpp-default
+      image: ghcr.io/anansi-bench/kserve-llamacpp:latest
+      runtime_class: ClusterServingRuntime/llamacpp
+      loader: default
+
+  formats:
+    - name: gguf-q4km
+      path: "s3://models/{model}/q4_k_m.gguf"
+
+  models:
+    - name: phi3-mini-3.8b
+      size_gb: 7.6
+
+  caching:
+    - name: lmc
+      local_model_cache: true
+
+  scenarios:
+    - name: s2-lmc-cold
+      caching: lmc
+      drop_page_cache: true
+
+    - name: s3-lmc-warm
+      caching: lmc
+      drop_page_cache: false
+
+experiment:
+  repetitions: 3
+  cooldown_seconds: 10
+  timeout_seconds: 180
+  prompt: "Hello"
+  max_tokens: 1

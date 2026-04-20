@@ -1,0 +1,72 @@
+---
+# Anansi RBAC
+# Grants the anansi-bench service account permissions to:
+# - Watch pod events (for timing instrumentation)
+# - Read pod logs (for runtime log parsing)
+# - Get/list InferenceServices (for scale-to-zero management)
+# - Patch InferenceServices (for scale control)
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: anansi-bench
+  namespace: kserve-bench
+  labels:
+    app.kubernetes.io/name: anansi
+    app.kubernetes.io/part-of: anansi
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: anansi-bench
+  labels:
+    app.kubernetes.io/name: anansi
+    app.kubernetes.io/part-of: anansi
+rules:
+  # Watch pod events for timing instrumentation
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+
+  # Read pod logs for runtime log parsing
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+
+  # Manage InferenceServices for scale control
+  - apiGroups: ["serving.kserve.io"]
+    resources: ["inferenceservices"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+
+  # Watch Knative revisions and configurations
+  - apiGroups: ["serving.knative.dev"]
+    resources: ["revisions", "configurations", "services"]
+    verbs: ["get", "list", "watch"]
+
+  # Read nodes for cache-drop endpoint discovery
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+
+  # Read PVCs for LocalModelCache management
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anansi-bench
+  labels:
+    app.kubernetes.io/name: anansi
+    app.kubernetes.io/part-of: anansi
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: anansi-bench
+subjects:
+  - kind: ServiceAccount
+    name: anansi-bench
+    namespace: kserve-bench

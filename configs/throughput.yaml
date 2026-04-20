@@ -1,0 +1,47 @@
+# Anansi — Throughput Benchmark
+# Sustained-load measurement at 1, 5, 10, 20 concurrent users
+# Measures tokens/s, latency percentiles under warm-state load
+
+testbed:
+  namespace: kserve-bench
+  gpu_device: "nvidia.com/gpu"
+  minio_endpoint: http://minio.default:9000
+  minio_bucket: models
+
+matrix:
+  runtimes:
+    - name: llamacpp-pipelined
+      image: ghcr.io/anansi-bench/kserve-llamacpp:latest
+      runtime_class: ClusterServingRuntime/llamacpp
+      loader: pipelined
+      loader_args: "--n-streams 4 --prefault"
+  formats:
+    - name: gguf-q4km
+      path: "s3://models/{model}/q4_k_m.gguf"
+  models:
+    - name: phi3-mini-3.8b
+      size_gb: 7.6
+  caching:
+    - name: lmc
+      local_model_cache: true
+  scenarios:
+    - name: s3-lmc-warm
+      caching: lmc
+      drop_page_cache: false
+
+experiment:
+  repetitions: 1
+  cooldown_seconds: 5
+  timeout_seconds: 300
+  prompt: "Write a short paragraph about distributed systems."
+  max_tokens: 128
+
+throughput:
+  concurrency: [1, 5, 10, 20]
+  duration_minutes: 5
+  warmup_requests: 3
+  config:
+    runtime: llamacpp-pipelined
+    format: gguf-q4km
+    model: phi3-mini-3.8b
+    scenario: s3-lmc-warm
