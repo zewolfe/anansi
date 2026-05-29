@@ -46,44 +46,52 @@ type ExperimentConfig struct {
 	MaxTokens       int    `yaml:"max_tokens"`
 }
 
+// Cooldown returns the cooldown as a time.Duration.
 func (e ExperimentConfig) Cooldown() time.Duration {
 	return time.Duration(e.CooldownSeconds) * time.Second
 }
 
+// Timeout returns the timeout as a time.Duration.
 func (e ExperimentConfig) Timeout() time.Duration {
 	return time.Duration(e.TimeoutSeconds) * time.Second
 }
 
+// RuntimeDef defines a serving runtime (e.g., llama.cpp default, vLLM optimised).
 type RuntimeDef struct {
 	Name         string            `yaml:"name"`
 	Image        string            `yaml:"image"`
 	RuntimeClass string            `yaml:"runtime_class,omitempty"`
-	Loader       string            `yaml:"loader,omitempty"`
-	LoaderArgs   string            `yaml:"loader_args,omitempty"`
+	Loader       string            `yaml:"loader,omitempty"`      // "default" or "pipelined"
+	LoaderArgs   string            `yaml:"loader_args,omitempty"` // e.g., "--n-streams 4 --prefault"
 	Env          map[string]string `yaml:"env,omitempty"`
 }
 
+// FormatDef defines a checkpoint format and its storage path template.
 type FormatDef struct {
 	Name string `yaml:"name"`
-	Path string `yaml:"path"`
+	Path string `yaml:"path"` // supports {model} placeholder
 }
 
+// ModelDef defines a model under test.
 type ModelDef struct {
 	Name   string  `yaml:"name"`
 	SizeGB float64 `yaml:"size_gb"`
 }
 
+// CachingDef defines a caching strategy.
 type CachingDef struct {
 	Name            string `yaml:"name"`
 	LocalModelCache bool   `yaml:"local_model_cache"`
 }
 
+// ScenarioDef defines a cold-start scenario (combination of caching + page cache state).
 type ScenarioDef struct {
 	Name          string `yaml:"name"`
-	Caching       string `yaml:"caching"`
+	Caching       string `yaml:"caching"` // references CachingDef.Name
 	DropPageCache bool   `yaml:"drop_page_cache"`
 }
 
+// ExclusionDef defines an invalid combination to skip (supports glob-style wildcards).
 type ExclusionDef struct {
 	Runtime  string `yaml:"runtime,omitempty"`
 	Format   string `yaml:"format,omitempty"`
@@ -150,10 +158,12 @@ func (tc TrialConfig) ConfigHash() string {
 	return fmt.Sprintf("%x", h[:8]) // 16 hex chars — enough to avoid collisions in our space
 }
 
+// Label returns a human-readable label for logging and progress display.
 func (tc TrialConfig) Label() string {
 	return fmt.Sprintf("%s/%s/%s/%s", tc.Runtime.Name, tc.Format.Name, tc.Model.Name, tc.Scenario.Name)
 }
 
+// ModelPath resolves the {model} placeholder in the format path template.
 func (tc TrialConfig) ModelPath() string {
 	return strings.ReplaceAll(tc.Format.Path, "{model}", tc.Model.Name)
 }

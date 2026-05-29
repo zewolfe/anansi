@@ -1,10 +1,10 @@
 # 🕷 Anansi
 
-**Hunt for Cold-Starts on Serverless LLM Inference**
+**Find for Cold-Starts on Serverless LLM Inference**
 
 Anansi is a benchmarking harness that systematically measures and decomposes cold-start latency for LLM inference on serverless Kubernetes infrastructure (KServe/Knative).
 
-Named after Anansi the spider of Akan mythology — who tried to attend every feast at once by tying ropes to each pot, only to discover that every path leads to a bottleneck. This tool finds where the ropes pull tightest.
+Named after Anansi the spider of Akan mythology, who tried to attend every feast at once by tying ropes to each pot, only to discover that every path leads to a bottleneck. This tool finds where the ropes pull tightest.
 
 ## Features
 
@@ -42,14 +42,14 @@ make deploy
 
 ## Commands
 
-| Command             | Description                        | Thesis Objective |
-| ------------------- | ---------------------------------- | ---------------- |
-| `anansi run`        | Full matrix cold-start evaluation  | O6               |
-| `anansi decompose`  | Per-component cold-start analysis  | O5               |
-| `anansi sweep`      | Arrival rate sweep (queuing model) | O9               |
-| `anansi throughput` | Warm-state throughput benchmark    | O11              |
-| `anansi report`     | Statistical analysis and report    | O5, O6           |
-| `anansi validate`   | Config validation (no cluster)     | —                |
+| Command             | Description                        |
+| ------------------- | ---------------------------------- |
+| `anansi run`        | Full matrix cold-start evaluation  |
+| `anansi decompose`  | Per-component cold-start analysis  |
+| `anansi sweep`      | Arrival rate sweep (queuing model) |
+| `anansi throughput` | Warm-state throughput benchmark    |
+| `anansi report`     | Statistical analysis and report    |
+| `anansi validate`   | Config validation (no cluster)     |
 
 ## Configuration
 
@@ -60,7 +60,6 @@ See [`configs/`](configs/) for example configurations. The YAML schema supports:
 - Multiple models (Phi-3-mini 3.8B, Llama-3-8B, Llama-2-13B)
 - Caching strategies (remote MinIO, LocalModelCache)
 - Cold-start scenarios (remote/cold, LMC/cold page cache, LMC/warm page cache)
-- Exclusion rules with glob matching
 
 ## Requirements
 
@@ -68,24 +67,6 @@ See [`configs/`](configs/) for example configurations. The YAML schema supports:
 - Kubernetes cluster with GPU (for execution)
 - KServe + Knative Serving installed
 - `kubectl` configured with cluster access
-
-## Architecture
-
-```
-anansi/
-├── cmd/anansi/          # CLI entry point (cobra)
-├── internal/
-│   ├── config/          # Schema, YAML parsing, matrix expansion
-│   ├── orchestrator/    # Trial lifecycle (prepare → trigger → collect → teardown)
-│   ├── instrument/      # K8s event watcher, runtime log parser
-│   ├── sweep/           # Poisson arrival generator, trace replay
-│   ├── throughput/      # Concurrent load driver
-│   ├── stats/           # Descriptive + comparative statistics
-│   ├── cachedrop/       # Page cache drop DaemonSet client
-│   └── output/          # CSV, JSON, markdown report writers
-├── deploy/              # K8s manifests (DaemonSet, RBAC)
-└── configs/             # Example YAML configurations
-```
 
 ## License
 

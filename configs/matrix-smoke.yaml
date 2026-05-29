@@ -1,17 +1,14 @@
-# Anansi — Smoke Test
-# Quick sanity check: 2 configs × 3 reps = 6 trials
-# Use this to validate the harness before running the full matrix
-
 testbed:
   namespace: kserve-bench
   gpu_device: "nvidia.com/gpu"
   minio_endpoint: http://minio.default:9000
   minio_bucket: models
+  kube_context: "olympus"
 
 matrix:
   runtimes:
     - name: llamacpp-default
-      image: ghcr.io/anansi-bench/kserve-llamacpp:latest
+      image: ghcr.io/zewolfe/kserve-llamacpp:latest #repo not set up yet
       runtime_class: ClusterServingRuntime/llamacpp
       loader: default
 

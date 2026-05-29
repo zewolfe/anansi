@@ -85,11 +85,11 @@ func ExpandMatrix(cfg *BenchConfig) ([]TrialConfig, error) {
 	var trials []TrialConfig
 
 	for _, rt := range cfg.Matrix.Runtimes {
-		for _, frmt := range cfg.Matrix.Formats {
+		for _, frmrt := range cfg.Matrix.Formats {
 			for _, model := range cfg.Matrix.Models {
 				for _, scenario := range cfg.Matrix.Scenarios {
 					// Check exclusions
-					if isExcluded(rt, frmt, model, scenario, cfg.Matrix.Exclusions) {
+					if isExcluded(rt, frmrt, model, scenario, cfg.Matrix.Exclusions) {
 						continue
 					}
 
@@ -97,14 +97,14 @@ func ExpandMatrix(cfg *BenchConfig) ([]TrialConfig, error) {
 					caching, ok := cachingMap[scenario.Caching]
 					if !ok && scenario.Caching != "" {
 						return nil, fmt.Errorf(
-							"scenario %v references unknown caching %v",
+							"scenario %q references unknown caching %q",
 							scenario.Name, scenario.Caching,
 						)
 					}
 
 					tc := TrialConfig{
 						Runtime:  rt,
-						Format:   frmt,
+						Format:   frmrt,
 						Model:    model,
 						Scenario: scenario,
 						Caching:  caching,
@@ -141,7 +141,7 @@ func isExcluded(rt RuntimeDef, f FormatDef, m ModelDef, s ScenarioDef, exclusion
 // Empty pattern matches everything. Supports trailing "*" glob.
 func matchesField(pattern, value string) bool {
 	if pattern == "" {
-		return true // empty = wildcard (match all)
+		return true
 	}
 	if pattern == value {
 		return true
@@ -174,8 +174,10 @@ func EnsureOutputDir(base string) error {
 	return nil
 }
 
+// PrintMatrixSummary prints a summary of the expanded matrix to stdout.
 func PrintMatrixSummary(trials []TrialConfig) {
-	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+	fmt.Println(" Anansi")
+	fmt.Println("----------")
 	fmt.Printf("  Matrix expansion: %d valid configurations\n\n", len(trials))
 
 	// Count unique values per axis

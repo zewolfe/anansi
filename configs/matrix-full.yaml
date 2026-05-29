@@ -1,7 +1,3 @@
-# Anansi — Full Experimental Matrix
-# Matches thesis proposal v7 experimental design
-# Expected: ~36 valid configurations × 10 reps = 360 trials
-
 testbed:
   namespace: kserve-bench
   gpu_device: "nvidia.com/gpu"
@@ -11,12 +7,12 @@ testbed:
 matrix:
   runtimes:
     - name: llamacpp-default
-      image: ghcr.io/anansi-bench/kserve-llamacpp:latest
+      image: ghcr.io/zewolfe/kserve-llamacpp:latest
       runtime_class: ClusterServingRuntime/llamacpp
       loader: default
 
     - name: llamacpp-pipelined
-      image: ghcr.io/anansi-bench/kserve-llamacpp:latest
+      image: ghcr.io/zewolfe/kserve-llamacpp:latest
       runtime_class: ClusterServingRuntime/llamacpp
       loader: pipelined
       loader_args: "--n-streams 4 --prefault"

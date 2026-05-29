@@ -1,7 +1,3 @@
-# Anansi — Throughput Benchmark
-# Sustained-load measurement at 1, 5, 10, 20 concurrent users
-# Measures tokens/s, latency percentiles under warm-state load
-
 testbed:
   namespace: kserve-bench
   gpu_device: "nvidia.com/gpu"
@@ -11,7 +7,7 @@ testbed:
 matrix:
   runtimes:
     - name: llamacpp-pipelined
-      image: ghcr.io/anansi-bench/kserve-llamacpp:latest
+      image: ghcr.io/zewolfe/kserve-llamacpp:latest
       runtime_class: ClusterServingRuntime/llamacpp
       loader: pipelined
       loader_args: "--n-streams 4 --prefault"
