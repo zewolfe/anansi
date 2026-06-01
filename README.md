@@ -1,10 +1,10 @@
-# 🕷 Anansi
+# Anansi
 
 **Find for Cold-Starts on Serverless LLM Inference**
 
 Anansi is a benchmarking harness that systematically measures and decomposes cold-start latency for LLM inference on serverless Kubernetes infrastructure (KServe/Knative).
 
-Named after Anansi the spider of Akan mythology, who tried to attend every feast at once by tying ropes to each pot, only to discover that every path leads to a bottleneck. This tool finds where the ropes pull tightest.
+Named after Anansi the spider of Akan mythology, who tried to attend every feast at once by tying ropes to each pot, only to discover that every path leads to a bottleneck.
 
 ## Features
 

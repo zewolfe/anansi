@@ -26,7 +26,7 @@ type csvFile struct {
 var csvHeader = []string{
 	"config_hash", "runtime", "format", "model", "scenario", "rep",
 	"t0_ns", "t1_ns", "t2_ns", "t3_ns", "t4_ns", "t5_ns", "t6_ns", "t7_ns",
-	"ttft_ms", "t_orch_ms", "t_runtime_ms", "t_load_ms", "t_init_ms",
+	"ttft_ms", "t_orch_ms", "t_serve_ms", "t_load_ms", "t_init_ms",
 	"gpu_mem_mb", "error",
 }
 
@@ -64,7 +64,7 @@ func (w *CSVWriter) WriteResult(result *config.TrialResult) error {
 		i64(result.T7),
 		f64(result.TTFT_ms),
 		f64(result.TOrch_ms),
-		f64(result.TRuntime_ms),
+		f64(result.TServe_ms),
 		f64(result.TLoad_ms),
 		f64(result.TInit_ms),
 		strconv.Itoa(result.GPUMemMB),

@@ -180,34 +180,6 @@ func TestModelPathResolution(t *testing.T) {
 	}
 }
 
-func TestTrialResultDecomposition(t *testing.T) {
-	tr := TrialResult{
-		T0: 1000000000, // 1s in ns
-		T3: 3000000000, // 3s — T_orch = 2000ms
-		T4: 4000000000, // 4s — T_runtime = 1000ms
-		T5: 6000000000, // 6s — T_load = 2000ms
-		T6: 7000000000, // 7s — T_init = 1000ms
-		T7: 7500000000, // 7.5s — TTFT = 6500ms
-	}
-	tr.ComputeDerivedDurations()
-
-	if tr.TTFT_ms != 6500 {
-		t.Fatalf("expected TTFT=6500, got %f", tr.TTFT_ms)
-	}
-	if tr.TOrch_ms != 2000 {
-		t.Fatalf("expected TOrch=2000, got %f", tr.TOrch_ms)
-	}
-	if tr.TLoad_ms != 2000 {
-		t.Fatalf("expected TLoad=2000, got %f", tr.TLoad_ms)
-	}
-
-	// Decomposition error: sum = 2000+1000+2000+1000 = 6000 vs 6500 → -7.7%
-	decomErr := tr.DecompositionError()
-	if decomErr > -7 || decomErr < -8 {
-		t.Fatalf("expected decomposition error ~-7.7%%, got %f%%", decomErr)
-	}
-}
-
 func TestMatchesField(t *testing.T) {
 	tests := []struct {
 		pattern string

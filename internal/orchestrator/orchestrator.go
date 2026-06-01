@@ -66,7 +66,7 @@ func (o *Orchestrator) RunMatrix(
 	trialNum := 0
 
 	for i, trial := range trials {
-		fmt.Printf("\n━━━ Config %d/%d: %s ━━━\n", i+1, len(trials), trial.Label())
+		fmt.Printf("\n--- Config %d/%d: %s ---\n", i+1, len(trials), trial.Label())
 
 		for rep := 1; rep <= experiment.Repetitions; rep++ {
 			trialNum++

@@ -22,11 +22,11 @@ type ConfigSummary struct {
 	Trials     int    `json:"trials"`
 	Errors     int    `json:"errors"`
 
-	TTFT     DurationStats `json:"ttft_ms"`
-	TOrch    DurationStats `json:"t_orch_ms"`
-	TRuntime DurationStats `json:"t_runtime_ms"`
-	TLoad    DurationStats `json:"t_load_ms"`
-	TInit    DurationStats `json:"t_init_ms"`
+	TTFT   DurationStats `json:"ttft_ms"`
+	TOrch  DurationStats `json:"t_orch_ms"`
+	TServe DurationStats `json:"t_serve_ms"`
+	TLoad  DurationStats `json:"t_load_ms"`
+	TInit  DurationStats `json:"t_init_ms"`
 
 	DecompErrorPct DurationStats `json:"decomp_error_pct"`
 }
@@ -125,8 +125,8 @@ func BuildConfigSummary(results []config.TrialResult) ConfigSummary {
 		if r.TOrch_ms > 0 {
 			orchs = append(orchs, r.TOrch_ms)
 		}
-		if r.TRuntime_ms > 0 {
-			runtimes = append(runtimes, r.TRuntime_ms)
+		if r.TServe_ms > 0 {
+			runtimes = append(runtimes, r.TServe_ms)
 		}
 		if r.TLoad_ms > 0 {
 			loads = append(loads, r.TLoad_ms)
@@ -142,7 +142,7 @@ func BuildConfigSummary(results []config.TrialResult) ConfigSummary {
 
 	summary.TTFT = computeStats(ttfts)
 	summary.TOrch = computeStats(orchs)
-	summary.TRuntime = computeStats(runtimes)
+	summary.TServe = computeStats(runtimes)
 	summary.TLoad = computeStats(loads)
 	summary.TInit = computeStats(inits)
 	summary.DecompErrorPct = computeStats(decompErrs)

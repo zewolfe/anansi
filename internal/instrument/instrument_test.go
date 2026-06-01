@@ -138,19 +138,18 @@ func TestPodTimestampsHasEssential(t *testing.T) {
 
 func TestSummaryLine(t *testing.T) {
 	result := &config.TrialResult{
-		Rep:         3,
-		TTFT_ms:     8500,
-		TOrch_ms:    2000,
-		TRuntime_ms: 500,
-		TLoad_ms:    4000,
-		TInit_ms:    1500,
+		Rep:       3,
+		TTFT_ms:   8500,
+		TOrch_ms:  2000,
+		TServe_ms: 500,
+		TLoad_ms:  4000,
+		TInit_ms:  1500,
 	}
 	line := SummaryLine(result)
 	if line == "" {
 		t.Fatal("SummaryLine returned empty for valid result")
 	}
 
-	// Error case
 	errResult := &config.TrialResult{
 		Rep:   1,
 		Error: "timeout",

@@ -188,12 +188,12 @@ type TrialResult struct {
 	T6 int64 `csv:"t6_ns" json:"t6_ns"` // first token generated
 	T7 int64 `csv:"t7_ns" json:"t7_ns"` // response complete
 
-	// Derived durations (milliseconds, for human readability)
-	TTFT_ms     float64 `csv:"ttft_ms"      json:"ttft_ms"`
-	TOrch_ms    float64 `csv:"t_orch_ms"    json:"t_orch_ms"`
-	TRuntime_ms float64 `csv:"t_runtime_ms" json:"t_runtime_ms"`
-	TLoad_ms    float64 `csv:"t_load_ms"    json:"t_load_ms"`
-	TInit_ms    float64 `csv:"t_init_ms"    json:"t_init_ms"`
+	// Derived durations in milliseconds
+	TTFT_ms   float64 `csv:"ttft_ms"      json:"ttft_ms"`
+	TOrch_ms  float64 `csv:"t_orch_ms"    json:"t_orch_ms"`
+	TServe_ms float64 `csv:"t_serve_ms"   json:"t_serve_ms"`
+	TLoad_ms  float64 `csv:"t_load_ms"    json:"t_load_ms"`
+	TInit_ms  float64 `csv:"t_init_ms"    json:"t_init_ms"`
 
 	// Resource usage
 	GPUMemMB int `csv:"gpu_mem_mb" json:"gpu_mem_mb"`
@@ -212,9 +212,9 @@ func (tr *TrialResult) ComputeDerivedDurations() {
 	}
 	tr.TTFT_ms = nsToMs(tr.T0, tr.T7)
 	tr.TOrch_ms = nsToMs(tr.T0, tr.T3)
-	tr.TRuntime_ms = nsToMs(tr.T3, tr.T4)
-	tr.TLoad_ms = nsToMs(tr.T4, tr.T5)
-	tr.TInit_ms = nsToMs(tr.T5, tr.T6)
+	tr.TLoad_ms = nsToMs(tr.T3, tr.T5)
+	tr.TInit_ms = nsToMs(tr.T5, tr.T4)
+	tr.TServe_ms = nsToMs(tr.T4, tr.T7)
 }
 
 // IsSuccess returns true if the trial completed without error.
@@ -228,8 +228,20 @@ func (tr *TrialResult) DecompositionError() float64 {
 	if tr.TTFT_ms <= 0 {
 		return -1
 	}
-	sum := tr.TOrch_ms + tr.TRuntime_ms + tr.TLoad_ms + tr.TInit_ms
+	sum := tr.TOrch_ms + tr.TServe_ms + tr.TLoad_ms + tr.TInit_ms
 	return ((sum - tr.TTFT_ms) / tr.TTFT_ms) * 100.0
+}
+
+func (tr *TrialResult) DecompositionValid() bool {
+	if tr.TTFT_ms <= 0 {
+		return false
+	}
+
+	if tr.TOrch_ms < 0 || tr.TLoad_ms < 0 || tr.TInit_ms < 0 || tr.TServe_ms < 0 {
+		return false
+	}
+
+	return true
 }
 
 // ThroughputResult captures metrics from a sustained-load throughput run.

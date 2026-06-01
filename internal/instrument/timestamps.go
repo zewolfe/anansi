@@ -71,6 +71,10 @@ func (r *Resolver) Resolve(
 	// Compute derived durations
 	result.ComputeDerivedDurations()
 
+	if !result.DecompositionValid() {
+		result.Error = "Invalid decomposition"
+	}
+
 	return result
 }
 
@@ -116,6 +120,18 @@ func DiagnoseGaps(result *config.TrialResult) []string {
 		issues = append(issues, "INFO: t6 (first token) not captured, defaulting to t7")
 	}
 
+	if result.T3 > 0 && result.T5 > 0 && result.T5 < result.T3 {
+		issues = append(issues, "ORDERING: t5 (model loaded) precedes t3 (container started). Clock skew or logs captured the wrong line")
+	}
+
+	if result.T5 > 0 && result.T4 > 0 && result.T4 < result.T5 {
+		issues = append(issues, "ORDERING: t4 (containers ready) precedes t5 (model loaded)")
+	}
+
+	if result.T4 > 0 && result.T7 > 0 && result.T7 < result.T4 {
+		issues = append(issues, "ORDERING: t7 (response) precedes t4 (containers ready). Madness")
+	}
+
 	// Check temporal ordering
 	timestamps := []struct {
 		name  string
@@ -154,9 +170,9 @@ func SummaryLine(result *config.TrialResult) string {
 
 	decomp := ""
 	if result.TOrch_ms > 0 && result.TLoad_ms > 0 {
-		decomp = fmt.Sprintf("  [orch=%.1fs rt=%.1fs load=%.1fs init=%.1fs]",
+		decomp = fmt.Sprintf("  [orch=%.1fs serve=%.1fs load=%.1fs init=%.1fs]",
 			result.TOrch_ms/1000,
-			result.TRuntime_ms/1000,
+			result.TServe_ms/1000,
 			result.TLoad_ms/1000,
 			result.TInit_ms/1000,
 		)
