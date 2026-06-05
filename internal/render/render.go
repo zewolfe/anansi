@@ -113,10 +113,10 @@ func (r *Renderer) SaveRender(isvcKey string, isvc ISVC) error {
 
 func serviceAccountFor(caching config.CachingDef) string {
 	if caching.LocalModelCache {
-		return "kserve-bench-s3"
+		return "kserve-bench-pvc"
 	}
 
-	return "kserve-bench-pvc"
+	return "kserve-bench-s3"
 }
 
 func modelFormatFor(format config.FormatDef) string {
