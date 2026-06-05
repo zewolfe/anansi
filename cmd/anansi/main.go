@@ -9,6 +9,7 @@ import (
 	"github.com/zewolfe/anansi/internal/k8s"
 	"github.com/zewolfe/anansi/internal/orchestrator"
 	"github.com/zewolfe/anansi/internal/output"
+	"github.com/zewolfe/anansi/internal/render"
 	"github.com/zewolfe/anansi/internal/sweep"
 	tp "github.com/zewolfe/anansi/internal/throughput"
 )
@@ -49,6 +50,7 @@ func init() {
 	rootCmd.AddCommand(throughputCmd)
 	rootCmd.AddCommand(reportCmd)
 	rootCmd.AddCommand(validateCmd)
+	rootCmd.AddCommand(renderISVCsCmd)
 }
 
 var runCmd = &cobra.Command{
@@ -398,9 +400,24 @@ var validateCmd = &cobra.Command{
 	},
 }
 
+var renderISVCsCmd = &cobra.Command{
+	Use:   "render-isvcs",
+	Short: "Generate InferenceService manifests from a matrix yaml",
+	Long:  `Generates KServe InferenceService Manifest files from a matrix yaml`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.LoadConfig(configPath)
+		if err != nil {
+			return err
+		}
+		renderer := render.NewRenderer(outputDir)
+
+		return renderer.Render(cfg)
+	},
+}
+
 func init() {
 	// Flags for commands that need config + output
-	for _, cmd := range []*cobra.Command{runCmd, decomposeCmd, sweepCmd, throughputCmd} {
+	for _, cmd := range []*cobra.Command{runCmd, decomposeCmd, sweepCmd, throughputCmd, renderISVCsCmd} {
 		cmd.Flags().StringVarP(&configPath, "config", "c", "", "Path to YAML config file (required)")
 		cmd.Flags().StringVarP(&outputDir, "output", "o", "results", "Output directory")
 		cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate and print plan without executing")
@@ -415,6 +432,7 @@ func init() {
 
 	validateCmd.Flags().StringVarP(&configPath, "config", "c", "", "Path to YAML config file (required)")
 	validateCmd.MarkFlagRequired("config")
+
 }
 
 func loadAndExpand(path string) (*config.BenchConfig, []config.TrialConfig, error) {

@@ -17,6 +17,7 @@ import (
 	"github.com/zewolfe/anansi/internal/config"
 	"github.com/zewolfe/anansi/internal/instrument"
 	"github.com/zewolfe/anansi/internal/output"
+	"github.com/zewolfe/anansi/internal/render"
 )
 
 type Orchestrator struct {
@@ -125,7 +126,7 @@ func (o *Orchestrator) RunMatrix(
 }
 
 // RunTrial executes a single cold-start trial:
-// prepare → trigger → collect → teardown.
+// prepare -> trigger -> collect -> teardown.
 func (o *Orchestrator) RunTrial(
 	ctx context.Context,
 	trial config.TrialConfig,
@@ -392,17 +393,13 @@ func buildInferencePayload(prompt string, maxTokens int) string {
 }
 
 // inferenceServiceName derives the KServe InferenceService name from a trial config.
-// Convention: <runtime>-<model> (e.g., "llamacpp-pipelined-phi3-mini-3-8b")
 func inferenceServiceName(trial config.TrialConfig) string {
-	name := fmt.Sprintf("%s-%s", trial.Runtime.Name, trial.Model.Name)
-	// K8s names must be lowercase, alphanumeric + hyphens, max 63 chars
-	name = strings.ToLower(name)
-	name = strings.ReplaceAll(name, ".", "-")
-	name = strings.ReplaceAll(name, "_", "-")
-	if len(name) > 63 {
-		name = name[:63]
-	}
-	return name
+	return render.ISVCName(
+		trial.Runtime.Name,
+		trial.Format.Name,
+		trial.Caching.Name,
+		trial.Model.Name,
+	)
 }
 
 // inferenceServiceSelector returns the label selector for pods belonging
