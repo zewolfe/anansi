@@ -1,0 +1,45 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: populate-models
+  namespace: kserve-bench
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 7200
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: populate-models
+          image: minio/mc:latest
+          volumeMounts:
+            - name: models-cache
+              mountPath: /mnt/data
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              mc alias set bench http://$MINIO_ENDPOINT $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+              mc stat bench/models
+
+              mc mirror bench/models /mnt/data
+          env:
+            - name: MINIO_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: ENDPOINT
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: SECRET_ACCESS_KEY
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: ACCESS_KEY_ID
+      volumes:
+        - name: models-cache
+          persistentVolumeClaim:
+            claimName: models-cache

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: models-manifest
+  namespace: kserve-bench
+data:
+  manifest.json: |
+    [
+      {
+        "model_name": "phi3-mini-3.8b",
+        "model_format": "q4_k_m.gguf",
+        "hf_repo": "microsoft/Phi-3-mini-4k-instruct-gguf",
+        "hf_file": "Phi-3-mini-4k-instruct-q4.gguf"
+      }
+    ]

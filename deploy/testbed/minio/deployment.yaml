@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: minio
+  labels:
+    app: minio
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      initContainers:
+        - name: minio-bootstrap
+          image: minio/mc:RELEASE.2025-08-13T08-35-41Z-cpuv1
+          restartPolicy: Always
+          envFrom:
+            - secretRef:
+                name: minio-credentials
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              rm -f /tmp/bootstrap-done
+              echo "waiting for MinIO on localhost:9000..."
+              until mc alias set local http://localhost:9000 \
+                      "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null 2>&1 \
+                    && mc admin info local >/dev/null 2>&1; do
+                sleep 2
+              done
+              echo "MinIO is up — applying configuration"
+
+              mc mb --ignore-existing local/test-bucket
+
+              mc admin policy create local job-rw /etc/minio-policy/job-policy.json 2>/dev/null \
+                || echo "policy 'job-rw' already exists"
+
+              mc admin user add local "$ACCESS_KEY_ID" "$SECRET_ACCESS_KEY" 2>/dev/null \
+                || echo "user '$ACCESS_KEY_ID' already exists"
+
+              mc admin policy attach local job-rw --user "$ACCESS_KEY_ID" 2>/dev/null \
+                || echo "policy already attached"
+
+              touch /tmp/bootstrap-done
+              echo "bootstrap complete; idling"
+              sleep infinity
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "test -f /tmp/bootstrap-done"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: policy
+              mountPath: /etc/minio-policy
+              readOnly: true
+          resources:
+            requests: { cpu: "10m", memory: "32Mi" }
+            limits: { cpu: "100m", memory: "128Mi" }
+
+      containers:
+        - name: minio
+          image: minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1
+          args: ["server", "/data", "--console-address", ":9001"]
+          envFrom:
+            - secretRef:
+                name: minio-credentials
+          ports:
+            - { containerPort: 9000, name: api }
+            - { containerPort: 9001, name: console }
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet: { path: /minio/health/ready, port: 9000 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            httpGet: { path: /minio/health/live, port: 9000 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests: { cpu: "100m", memory: "256Mi" }
+            limits: { cpu: "500m", memory: "512Mi" }
+
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: minio-data
+        - name: policy
+          configMap:
+            name: minio-job-policy

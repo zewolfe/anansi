@@ -1,0 +1,79 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: download-models
+  namespace: kserve-bench
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 7200
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: download-models
+          image: python:3.11-slim
+          volumeMounts:
+            - name: models-cache
+              mountPath: /work
+            - name: models-manifest
+              mountPath: /etc/config
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              apt-get update && apt-get install -y --no-install-recommends jq curl ca-certificates
+              curl -sSLo /usr/local/bin/mc https://dl.min.io/client/mc/release/linux-amd64/mc
+              chmod +x /usr/local/bin/mc
+              python -m pip install --no-cache-dir huggingface_hub hf_transfer
+              mc alias set bench http://$MINIO_ENDPOINT $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+              mc mb bench/models --ignore-existing
+              jq -c '.[]' /etc/config/manifest.json | while read -r model; do 
+                name=$(jq -r '.model_name' <<< "$model")
+                model_format=$(jq -r '.model_format' <<< "$model")
+                hf_repo=$(jq -r '.hf_repo' <<< "$model")
+                hf_file=$(jq -r '.hf_file' <<< "$model")
+                if mc stat bench/models/$name/$model_format >/dev/null 2>&1; then
+                    echo "already present, skipping"
+                    continue
+                fi
+                hf download "$hf_repo" "$hf_file" --local-dir /work 
+                mc cp /work/$hf_file bench/models/$name/$model_format
+                local_size=$(stat -c%s /work/$hf_file)
+                remote_size=$(mc stat --json bench/models/$name/$model_format | jq -r '.size')
+                if [ "$local_size" != "$remote_size" ]; then
+                    echo "ERROR: size mismatch local=$local_size remote=$remote_size"
+                    exit 1
+                fi
+                rm -rf /work/$hf_file
+              done
+          env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: huggingface-credentials
+                  key: HF_TOKEN
+            - name: MINIO_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: ENDPOINT
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: SECRET_ACCESS_KEY
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: ACCESS_KEY_ID
+      volumes:
+        - name: models-cache
+          emptyDir:
+            sizeLimit: "80Gi"
+        - name: models-manifest
+          configMap:
+            name: models-manifest
+            items:
+              - key: manifest.json
+                path: manifest.json
