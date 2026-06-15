@@ -2,7 +2,7 @@
 
 **Find for Cold-Starts on Serverless LLM Inference**
 
-Anansi is a benchmarking harness that systematically measures and decomposes cold-start latency for LLM inference on serverless Kubernetes infrastructure (KServe/Knative).
+Anansi is a benchmarking harness that measures and decomposes cold-start latency for LLM inference on serverless Kubernetes infrastructure (KServe/Knative).
 
 ## Features
 
@@ -10,7 +10,6 @@ Anansi is a benchmarking harness that systematically measures and decomposes col
 - **Cold-start decomposition** — Per-component timing (orchestration, runtime init, model loading, initialisation, warm-up) with validation
 - **Arrival rate sweep** — M/G/1 queuing model validation against empirical cold-start probability
 - **Throughput benchmarking** — Sustained concurrent load measurement (tokens/s, latency percentiles)
-- **Statistical analysis** — Median, P95, P99, bootstrap CI, Welch's t-test, Cohen's d
 - **Reproducibility** — Deterministic config hashing, raw data export, structured output
 
 ## Quick Start

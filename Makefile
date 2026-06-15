@@ -1,5 +1,5 @@
 BINARY   := anansi
-MODULE   := github.com/anansi-bench/anansi
+MODULE   := github.com/zewolfe/anansi
 VERSION  := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS  := -ldflags "-X main.Version=$(VERSION)"
 
@@ -50,7 +50,7 @@ clean:
 
 ## Show help
 help:
-	@echo "Anansi — Cold-Start Bottleneck Hunter"
+	@echo "Anansi"
 	@echo ""
 	@echo "Targets:"
 	@grep -E '^## ' Makefile | sed 's/## /  /'
