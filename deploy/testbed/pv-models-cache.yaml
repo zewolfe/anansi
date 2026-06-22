@@ -1,0 +1,13 @@
+# Specific to our test bed setup
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: models-cache-pv
+spec:
+  storageClassName: standard-host
+  accessModes:
+    - ReadWriteOnce
+  capacity:
+    storage: 80Gi
+  hostPath:
+    path: "/scratch/anansi/models"

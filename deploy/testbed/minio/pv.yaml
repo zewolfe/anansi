@@ -1,0 +1,13 @@
+# Specific to our test bed setup
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: minio-pv
+spec:
+  storageClassName: minio-host
+  accessModes:
+    - ReadWriteOnce
+  capacity:
+    storage: 100Gi
+  hostPath:
+    path: "/scratch/anansi/minio"

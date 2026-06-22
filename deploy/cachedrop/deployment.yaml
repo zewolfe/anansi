@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cachedrop
+  namespace: kserve-bench
+  labels:
+    app: cachedrop
+spec:
+  selector:
+    matchLabels:
+      app: cachedrop
+  template:
+    metadata:
+      labels:
+        app: cachedrop
+    spec:
+      hostNetwork: true
+      hostPID: true
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: cachedrop
+          image: python:3.12-alpine
+          securityContext:
+            privileged: true
+          ports:
+            - name: http
+              containerPort: 9999
+              hostPort: 9999
+              protocol: TCP
+          command: ["python3", "-u", "-c"]
+          args:
+            - |
+              import http.server, socketserver, os, sys
+
+              class Handler(http.server.BaseHTTPRequestHandler):
+                  def do_GET(self):  self._handle()
+                  def do_POST(self): self._handle()
+
+                  def _handle(self):
+                      if self.path == "/drop":
+                          # Sync may be missing on minimal images — best-effort.
+                          os.system("sync 2>/dev/null || true")
+                          try:
+                              with open("/proc/sys/vm/drop_caches", "w") as f:
+                                  f.write("3\n")
+                              body, status = b"ok\n", 200
+                          except Exception as e:
+                              body, status = f"err: {e}\n".encode(), 500
+                      elif self.path == "/health":
+                          body, status = b"healthy\n", 200
+                      else:
+                          body, status = b"unknown endpoint\n", 404
+                      self.send_response(status)
+                      self.send_header("Content-Length", str(len(body)))
+                      self.send_header("Content-Type", "text/plain")
+                      self.end_headers()
+                      self.wfile.write(body)
+
+                  def log_message(self, fmt, *args):
+                      sys.stderr.write("[cachedrop] " + (fmt % args) + "\n")
+
+              print("Anansi cache-drop agent ready on :9999", flush=True)
+              socketserver.TCPServer.allow_reuse_address = True
+              with socketserver.TCPServer(("", 9999), Handler) as srv:
+                  srv.serve_forever()

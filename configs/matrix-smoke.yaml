@@ -8,7 +8,7 @@ testbed:
 matrix:
   runtimes:
     - name: llamacpp-default
-      image: ghcr.io/zewolfe/kserve-llamacpp:latest #repo not set up yet
+      image: ghcr.io/zewolfe/kserve-llamacpp:latest
       runtime_class: ClusterServingRuntime/llamacpp
       loader: default
 

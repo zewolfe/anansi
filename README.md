@@ -7,7 +7,7 @@ Anansi is a benchmarking harness that measures and decomposes cold-start latency
 ## Features
 
 - **Matrix evaluation** — Cartesian product of runtimes × formats × models × caching × scenarios with automatic exclusion filtering
-- **Cold-start decomposition** — Per-component timing (orchestration, runtime init, model loading, initialisation, warm-up) with validation
+- **Cold-start decomposition** — Per-component timing (orchestration, runtime init, model loading, serve) with validation
 - **Arrival rate sweep** — M/G/1 queuing model validation against empirical cold-start probability
 - **Throughput benchmarking** — Sustained concurrent load measurement (tokens/s, latency percentiles)
 - **Reproducibility** — Deterministic config hashing, raw data export, structured output

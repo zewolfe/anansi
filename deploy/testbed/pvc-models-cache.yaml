@@ -4,6 +4,7 @@ metadata:
   name: models-cache
   namespace: kserve-bench
 spec:
+  storageClassName: standard-host
   accessModes:
     - ReadWriteOnce
   resources:

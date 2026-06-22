@@ -21,6 +21,7 @@ type ISVCSpec struct {
 type PredictorSpec struct {
 	Model              ModelSpec `yaml:"model"`
 	ServiceAccountName string    `yaml:"serviceAccountName,omitempty"`
+	RuntimeClassName   string    `yaml:"runtimeClassName"`
 }
 
 type ModelSpec struct {

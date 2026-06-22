@@ -11,6 +11,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const runtimeClassName string = "nvidia"
+
 type Renderer struct {
 	outputDir string
 }
@@ -63,6 +65,7 @@ func (r *Renderer) Render(cfg *config.BenchConfig) error {
 			Spec: ISVCSpec{
 				Predictor: PredictorSpec{
 					ServiceAccountName: serviceAccountFor(t.Caching),
+					RuntimeClassName:   runtimeClassName,
 					Model: ModelSpec{
 						ModelFormat: ModelFormat{Name: modelFormatFor(t.Format)},
 						Runtime:     runtimeName(t.Runtime),
@@ -71,6 +74,7 @@ func (r *Renderer) Render(cfg *config.BenchConfig) error {
 						Env: []EnvVar{
 							{Name: "ANANSI_LOADER", Value: t.Runtime.Loader},
 							{Name: "ANANSI_LOADER_ARGS", Value: t.Runtime.LoaderArgs},
+							{Name: "MODEL_PATH", Value: fmt.Sprintf("/mnt/models/%s/%s", t.Model.Name, t.Format.Name)},
 						},
 						Resources: &Resources{
 							Limits: map[string]string{"nvidia.com/gpu": "1"},
