@@ -23,6 +23,7 @@ import (
 type Orchestrator struct {
 	k8sClient    kubernetes.Interface
 	namespace    string
+	podInformer  *instrument.PodInformer
 	eventWatcher *instrument.EventWatcher
 	logParser    *instrument.LogParser
 	resolver     *instrument.Resolver
@@ -44,6 +45,7 @@ func New(cfg OrchestratorConfig) *Orchestrator {
 	return &Orchestrator{
 		k8sClient:    cfg.K8sClient,
 		namespace:    cfg.Namespace,
+		podInformer:  instrument.NewPodInformer(cfg.K8sClient, cfg.Namespace),
 		eventWatcher: instrument.NewEventWatcher(cfg.K8sClient, cfg.Namespace),
 		logParser:    instrument.NewLogParser(cfg.K8sClient, cfg.Namespace),
 		resolver:     instrument.NewResolver(),
@@ -155,6 +157,13 @@ func (o *Orchestrator) RunTrial(
 			trialCtx, labelSelector, podTS, experiment.Timeout())
 	}()
 
+	podInformerDone := make(chan error, 1)
+	go func() {
+		podInformerDone <- o.podInformer.WatchPods(
+			podTS, experiment.Timeout(),
+		)
+	}()
+
 	// Log parser in background (waits for pod to appear, then tails)
 	logDone := make(chan error, 1)
 	go func() {
@@ -199,6 +208,7 @@ func (o *Orchestrator) RunTrial(
 
 	select {
 	case <-eventDone:
+	case <-podInformerDone:
 	case <-collectCtx.Done():
 		if o.verbose {
 			fmt.Println("    Event watcher timed out on grace period")
