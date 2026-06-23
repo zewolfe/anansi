@@ -10,6 +10,30 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Canonical fixtures. The matrix expands the cartesian product of these;
+// tests below enumerate the cases that exercise scenario-aware branching.
+var (
+	allModels = []string{
+		"phi3-mini-3.8b",
+		"llama3-8b",
+		"llama2-13b",
+	}
+
+	allGGUFFormats = []string{
+		"q4_k_m.gguf",
+		"q8_0.gguf",
+	}
+
+	lmcScenarios = []string{
+		"s2-lmc-cold",
+		"s3-lmc-warm",
+	}
+
+	remoteScenarios = []string{
+		"s1-remote-cold",
+	}
+)
+
 func TestISVCName_BasicConcatenation(t *testing.T) {
 	got := ISVCName("llamacpp-default", "gguf-q4km", "remote", "llama3-8b")
 	want := "llamacpp-default-gguf-q4km-remote-llama3-8b"
@@ -77,46 +101,6 @@ func TestISVCName_StartsAndEndsAlphanumeric(t *testing.T) {
 
 func isAlphanumeric(b byte) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
-}
-
-/*
---
- **StorageURI
---
-*/
-
-func TestStorageURI_ModelPlaceholderSubstituted(t *testing.T) {
-	got := StorageURI("remote", "llama3-8b", "s3://models/{model}/q4_k_m.gguf")
-	want := "s3://models/llama3-8b/q4_k_m.gguf"
-	if got != want {
-		t.Errorf("StorageURI = %q, want %q", got, want)
-	}
-}
-
-func TestStorageURI_RemoteCachingLeavesS3PrefixIntact(t *testing.T) {
-	got := StorageURI("remote", "llama3-8b", "s3://models/{model}/q4_k_m.gguf")
-	if !strings.HasPrefix(got, "s3://") {
-		t.Errorf("remote caching must yield s3:// URI, got %q", got)
-	}
-}
-
-func TestStorageURI_LMCRewritesToPVC(t *testing.T) {
-	got := StorageURI("lmc", "llama3-8b", "s3://models/{model}/q4_k_m.gguf")
-	want := "pvc://models-cache/llama3-8b/q4_k_m.gguf"
-	if got != want {
-		t.Errorf("StorageURI = %q, want %q", got, want)
-	}
-}
-
-// The regex should match any s3:// prefix, not just "s3://models".
-func TestStorageURI_LMCRewritesAnyBucket(t *testing.T) {
-	got := StorageURI("lmc", "phi3-mini-3.8b", "s3://otherbucket/{model}/file.gguf")
-	if strings.HasPrefix(got, "s3://") {
-		t.Errorf("LMC must rewrite s3:// prefix regardless of bucket, got %q", got)
-	}
-	if !strings.HasPrefix(got, "pvc://models-cache/") {
-		t.Errorf("LMC must produce pvc://models-cache/ prefix, got %q", got)
-	}
 }
 
 // =============================================================================
@@ -471,5 +455,128 @@ func TestRender_PropagatesWriteErrors(t *testing.T) {
 	err := NewRenderer(conflictPath).Render(cfg)
 	if err == nil {
 		t.Error("Render must return an error when output dir cannot be created or written to")
+	}
+}
+
+// TestStorageURI_PVC_IsRootOnly verifies that for every LMC scenario,
+// the rendered storageUri is mount-only — no per-file path, no per-model
+// path. This is the empirically-discovered constraint behind D-018: KServe
+// interprets pvc:// as "mount this PVC", not "fetch this specific file".
+func TestStorageURI_PVC_IsRootOnly(t *testing.T) {
+	const want = "pvc://models-cache"
+
+	for _, scenario := range lmcScenarios {
+		for _, model := range allModels {
+			for _, format := range allGGUFFormats {
+				name := scenario + "/" + model + "/" + format
+				t.Run(name, func(t *testing.T) {
+					got := StorageURI(format, model, scenario)
+					if got != want {
+						t.Errorf("StorageURI(%q, %q, %q) = %q; want %q (pvc URIs must be mount-only)",
+							format, model, scenario, got, want)
+					}
+				})
+			}
+		}
+	}
+}
+
+// TestStorageURI_S3_IncludesFilePath verifies that for s1-remote-cold,
+// the URI points at the specific object in the models bucket — because
+// KServe's S3 StorageInitializer downloads exactly that object to
+// /mnt/models. This is the inverse semantics of pvc:// and must be
+// preserved.
+func TestStorageURI_S3_IncludesFilePath(t *testing.T) {
+	for _, scenario := range remoteScenarios {
+		for _, model := range allModels {
+			for _, format := range allGGUFFormats {
+				name := scenario + "/" + model + "/" + format
+				t.Run(name, func(t *testing.T) {
+					want := "s3://models/" + model + "/" + format
+					got := StorageURI(format, model, scenario)
+					if got != want {
+						t.Errorf("StorageURI(%q, %q, %q) = %q; want %q (s3 URIs must address the specific object)",
+							format, model, scenario, got, want)
+					}
+				})
+			}
+		}
+	}
+}
+
+// TestModelPath_PVCNested verifies that for LMC scenarios, MODEL_PATH
+// includes the <model>/<format> nesting — because the PVC contains
+// every model and the entrypoint needs the specific one. This is the
+// asymmetric pair to TestStorageURI_PVC_IsRootOnly: the URI loses the
+// path so MODEL_PATH must carry it instead.
+func TestModelPath_PVCNested(t *testing.T) {
+	for _, scenario := range lmcScenarios {
+		for _, model := range allModels {
+			for _, format := range allGGUFFormats {
+				name := scenario + "/" + model + "/" + format
+				t.Run(name, func(t *testing.T) {
+					want := "/mnt/models/" + model + "/" + format
+					got := ModelPath(format, model, scenario)
+					if got != want {
+						t.Errorf("ModelPath(%q, %q, %q) = %q; want %q (LMC paths must include model subdir)",
+							format, model, scenario, got, want)
+					}
+				})
+			}
+		}
+	}
+}
+
+// TestModelPath_S3Basename verifies that for s1-remote-cold, MODEL_PATH
+// is just /mnt/models/<format> — because the S3 StorageInitializer
+// downloads the single addressed object to /mnt/models/ with the original
+// basename, no per-model subdirectory.
+func TestModelPath_S3Basename(t *testing.T) {
+	for _, scenario := range remoteScenarios {
+		for _, model := range allModels {
+			for _, format := range allGGUFFormats {
+				name := scenario + "/" + model + "/" + format
+				t.Run(name, func(t *testing.T) {
+					want := "/mnt/models/" + format
+					got := ModelPath(format, model, scenario)
+					if got != want {
+						t.Errorf("ModelPath(%q, %q, %q) = %q; want %q (s3 paths use basename only)",
+							format, model, scenario, got, want)
+					}
+				})
+			}
+		}
+	}
+}
+
+// TestStorageURI_ModelPath_AreConsistent is a meta-test: it ensures the
+// two functions agree on the file the runtime will actually load. Given
+// StorageURI and ModelPath for the same (format, model, scenario), the
+// runtime must be able to find the file at MODEL_PATH after KServe's
+// storage layer materialises the URI.
+//
+// We can't run KServe in a unit test, but we can check the invariant
+// that MODEL_PATH ends in the format basename — a necessary condition
+// for the runtime to find the file regardless of scenario.
+func TestStorageURI_ModelPath_AreConsistent(t *testing.T) {
+	allScenarios := append([]string{}, lmcScenarios...)
+	allScenarios = append(allScenarios, remoteScenarios...)
+
+	for _, scenario := range allScenarios {
+		for _, model := range allModels {
+			for _, format := range allGGUFFormats {
+				name := scenario + "/" + model + "/" + format
+				t.Run(name, func(t *testing.T) {
+					path := ModelPath(format, model, scenario)
+					// MODEL_PATH must end with the format basename; otherwise
+					// the entrypoint can never find the file.
+					wantSuffix := "/" + format
+					if len(path) < len(wantSuffix) || path[len(path)-len(wantSuffix):] != wantSuffix {
+						t.Errorf("ModelPath(%q, %q, %q) = %q; expected to end with %q",
+							format, model, scenario, path, wantSuffix)
+					}
+				})
+			}
+		}
 	}
 }

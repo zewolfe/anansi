@@ -11,5 +11,35 @@ data:
         "model_format": "q4_k_m.gguf",
         "hf_repo": "microsoft/Phi-3-mini-4k-instruct-gguf",
         "hf_file": "Phi-3-mini-4k-instruct-q4.gguf"
-      }
+      },
+      {
+          "model_name": "phi3-mini-3.8b",
+          "model_format": "q8_0.gguf",
+          "hf_repo": "bartowski/Phi-3-mini-4k-instruct-GGUF",
+          "hf_file": "Phi-3-mini-4k-instruct-Q8_0.gguf"
+        },
+        {
+          "model_name": "llama3-8b",
+          "model_format": "q4_k_m.gguf",
+          "hf_repo": "bartowski/Meta-Llama-3-8B-Instruct-GGUF",
+          "hf_file": "Meta-Llama-3-8B-Instruct-Q4_K_M.gguf"
+        },
+        {
+          "model_name": "llama3-8b",
+          "model_format": "q8_0.gguf",
+          "hf_repo": "bartowski/Meta-Llama-3-8B-Instruct-GGUF",
+          "hf_file": "Meta-Llama-3-8B-Instruct-Q8_0.gguf"
+        },
+        {
+          "model_name": "llama2-13b",
+          "model_format": "q4_k_m.gguf",
+          "hf_repo": "TheBloke/Llama-2-13B-chat-GGUF",
+          "hf_file": "llama-2-13b-chat.Q4_K_M.gguf"
+        },
+        {
+          "model_name": "llama2-13b",
+          "model_format": "q8_0.gguf",
+          "hf_repo": "TheBloke/Llama-2-13B-chat-GGUF",
+          "hf_file": "llama-2-13b-chat.Q8_0.gguf"
+        }
     ]

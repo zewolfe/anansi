@@ -3,7 +3,7 @@ testbed:
   gpu_device: "nvidia.com/gpu"
   minio_endpoint: http://minio.default:9000
   minio_bucket: models
-  kube_context: "olympus"
+  kube_context: "sayed"
 
 matrix:
   runtimes:

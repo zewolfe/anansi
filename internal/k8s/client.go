@@ -2,8 +2,6 @@ package k8s
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -16,16 +14,8 @@ func NewClient(kubeContext string) (kubernetes.Interface, error) {
 		return kubernetes.NewForConfig(config)
 	}
 
-	fmt.Println(kubeContext)
-	fmt.Println("CONFIG ", config)
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 
-	// kubeconfig := defaultKubeconfigPath()
-	kubeconfig := "<MANUAL_TEST>"
-	fmt.Println(kubeconfig)
-
-	loadingRules := &clientcmd.ClientConfigLoadingRules{
-		ExplicitPath: kubeconfig,
-	}
 	overrides := &clientcmd.ConfigOverrides{}
 	if kubeContext != "" {
 		overrides.CurrentContext = kubeContext
@@ -47,12 +37,4 @@ func NewClient(kubeContext string) (kubernetes.Interface, error) {
 	}
 
 	return client, nil
-}
-
-func defaultKubeconfigPath() string {
-	if env := os.Getenv("KUBECONFIG"); env != "" {
-		return env
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".kube", "config")
 }
