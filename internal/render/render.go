@@ -74,7 +74,7 @@ func (r *Renderer) Render(cfg *config.BenchConfig) error {
 						Env: []EnvVar{
 							{Name: "ANANSI_LOADER", Value: t.Runtime.Loader},
 							{Name: "ANANSI_LOADER_ARGS", Value: t.Runtime.LoaderArgs},
-							{Name: "MODEL_PATH", Value: fmt.Sprintf("/mnt/models/%s/%s", t.Model.Name, t.Format.Name)},
+							{Name: "MODEL_PATH", Value: ModelPath(t.Format.Name, t.Model.Name, t.Scenario.Name)},
 						},
 						Resources: &Resources{
 							Limits: map[string]string{"nvidia.com/gpu": "1"},
@@ -156,4 +156,12 @@ func StorageURI(caching, model, formatPath string) string {
 	}
 
 	return p
+}
+
+func ModelPath(format, model, scenario string) string {
+	if strings.HasPrefix(scenario, "s2-lmc") || strings.HasPrefix(scenario, "s3-lmc") {
+		return fmt.Sprintf("/mnt/models/%s/%s", model, format)
+	}
+
+	return fmt.Sprintf("/mnt/models/%s", format)
 }
