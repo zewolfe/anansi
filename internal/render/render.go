@@ -69,7 +69,7 @@ func (r *Renderer) Render(cfg *config.BenchConfig) error {
 					Model: ModelSpec{
 						ModelFormat: ModelFormat{Name: modelFormatFor(t.Format)},
 						Runtime:     runtimeName(t.Runtime),
-						StorageUri:  StorageURI(t.Caching.Name, t.Model.Name, t.Format.Path),
+						StorageUri:  StorageURI(t.Format.Name, t.Model.Name, t.Scenario.Name),
 						//TODO:Support VLLM ENV VARIABLES
 						Env: []EnvVar{
 							{Name: "ANANSI_LOADER", Value: t.Runtime.Loader},
@@ -149,13 +149,12 @@ func sanitiseK8sName(name string) string {
 	return name
 }
 
-func StorageURI(caching, model, formatPath string) string {
-	p := strings.ReplaceAll(formatPath, "{model}", model)
-	if caching == "lmc" {
-		p = s3RegEx.ReplaceAllString(p, "pvc://models-cache/")
+func StorageURI(format, model, scenario string) string {
+	if strings.HasPrefix(scenario, "s2-lmc") || strings.HasPrefix(scenario, "s3-lmc") {
+		return "pvc://models-cache"
 	}
 
-	return p
+	return fmt.Sprintf("s3://models/%s/%s", model, format)
 }
 
 func ModelPath(format, model, scenario string) string {
