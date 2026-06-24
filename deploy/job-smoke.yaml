@@ -1,0 +1,55 @@
+# Runs a smoke test
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: anansi-smoke-results
+  namespace: kserve-bench
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: anansi-smoke
+  namespace: kserve-bench
+spec:
+  backoffLimit: 0
+  completions: 1
+  parallelism: 1
+  ttlSecondsAfterFinished: 600
+  activeDeadlineSeconds: 1800
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: anansi
+        app.kubernetes.io/part-of: anansi
+        app.kubernetes.io/component: smoke
+    spec:
+      serviceAccountName: anansi-bench
+      restartPolicy: Never
+      containers:
+        - name: anansi
+          image: ghcr.io/zewolfe/anansi:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - "run"
+            - "--config=/configs/matrix-smoke.yaml"
+            - "--output=/results"
+            - "-v"
+          resources:
+            requests:
+              cpu: "1"
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: results
+              mountPath: /results
+      volumes:
+        - name: results
+          persistentVolumeClaim:
+            claimName: anansi-smoke-results
