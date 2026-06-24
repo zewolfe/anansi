@@ -3,9 +3,9 @@ kind: PersistentVolumeClaim
 metadata:
   name: anansi-results
   namespace: kserve-bench
-labels:
-  app.kubernetes.io/name: anansi
-  app.kubernetes.io/part-of: anansi
+  labels:
+    app.kubernetes.io/name: anansi
+    app.kubernetes.io/part-of: anansi
 spec:
   accessModes: ["ReadWriteOnce"]
   storageClassName: local-path
