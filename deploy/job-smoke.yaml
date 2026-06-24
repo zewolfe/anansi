@@ -39,6 +39,7 @@ spec:
             - "run"
             - "--config=/configs/matrix-smoke.yaml"
             - "--output=/results"
+            - "--mode=in-cluster"
             - "-v"
           resources:
             requests:

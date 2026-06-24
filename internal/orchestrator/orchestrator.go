@@ -186,7 +186,7 @@ func (o *Orchestrator) RunTrial(
 	resp, err := o.sendInferenceRequest(trialCtx, endpoint, payload)
 	if err != nil {
 		cancel() // stop collectors
-		return nil, fmt.Errorf("inference request: %w", err)
+		return nil, fmt.Errorf("inference request with host %s and endpoint %s failed with error: %w", endpoint.Host, endpoint.URL, err)
 	}
 
 	t7 := time.Now()
@@ -201,7 +201,7 @@ func (o *Orchestrator) RunTrial(
 
 	if resp.StatusCode != http.StatusOK {
 		cancel()
-		return nil, fmt.Errorf("inference returned HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("inference returned HTTP %d, host: %s, url:%s", resp.StatusCode, endpoint.Host, endpoint.URL)
 	}
 
 	// ─── COLLECT ─────────────────────────────────────────────
