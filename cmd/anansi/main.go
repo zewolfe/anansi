@@ -39,6 +39,10 @@ var (
 	reps       int
 	dryRun     bool
 	verbose    bool
+
+	endpointMode    string
+	endpointBaseURL string
+	inferencePath   string
 )
 
 func init() {
@@ -92,11 +96,18 @@ number of repetitions. Outputs raw timing data and statistical summaries.`,
 			return fmt.Errorf("creating k8s client: %w", err)
 		}
 
+		endpointConfig := render.EndpointConfig{
+			Mode:          render.EndpointMode(endpointMode),
+			BaseURL:       endpointBaseURL,
+			InferencePath: inferencePath,
+		}
+
 		orch := orchestrator.New(orchestrator.OrchestratorConfig{
-			K8sClient: k8sClient,
-			Namespace: cfg.Testbed.Namespace,
-			OutputDir: outputDir,
-			Verbose:   verbose,
+			K8sClient:      k8sClient,
+			Namespace:      cfg.Testbed.Namespace,
+			OutputDir:      outputDir,
+			EndpointConfig: endpointConfig,
+			Verbose:        verbose,
 		})
 		defer orch.Close()
 
@@ -151,11 +162,18 @@ initialisation, warm-up). Validates that components sum to within 10% of TTFT.`,
 			return fmt.Errorf("creating k8s client: %w", err)
 		}
 
+		endpointConfig := render.EndpointConfig{
+			Mode:          render.EndpointMode(endpointMode),
+			BaseURL:       endpointBaseURL,
+			InferencePath: inferencePath,
+		}
+
 		orch := orchestrator.New(orchestrator.OrchestratorConfig{
-			K8sClient: k8sClient,
-			Namespace: cfg.Testbed.Namespace,
-			OutputDir: outputDir,
-			Verbose:   true, // always verbose for decompose
+			K8sClient:      k8sClient,
+			Namespace:      cfg.Testbed.Namespace,
+			OutputDir:      outputDir,
+			EndpointConfig: endpointConfig,
+			Verbose:        true, // always verbose for decompose
 		})
 		defer orch.Close()
 
@@ -220,11 +238,18 @@ prediction P = e^(-λτ).`,
 			return fmt.Errorf("creating k8s client: %w", err)
 		}
 
+		endpointConfig := render.EndpointConfig{
+			Mode:          render.EndpointMode(endpointMode),
+			BaseURL:       endpointBaseURL,
+			InferencePath: inferencePath,
+		}
+
 		orch := orchestrator.New(orchestrator.OrchestratorConfig{
-			K8sClient: k8sClient,
-			Namespace: cfg.Testbed.Namespace,
-			OutputDir: outputDir,
-			Verbose:   verbose,
+			K8sClient:      k8sClient,
+			Namespace:      cfg.Testbed.Namespace,
+			OutputDir:      outputDir,
+			EndpointConfig: endpointConfig,
+			Verbose:        verbose,
 		})
 		defer orch.Close()
 
@@ -281,15 +306,21 @@ under concurrent load at specified concurrency levels.`,
 		// For throughput, we need the model to already be deployed and warm
 		isvcName := fmt.Sprintf("%s-%s",
 			cfg.Throughput.Config.Runtime, cfg.Throughput.Config.Model)
-		inferenceURL := fmt.Sprintf("http://%s.%s.svc.cluster.local/v1/completions",
-			isvcName, cfg.Testbed.Namespace)
 
-		runner := tp.NewRunner(verbose)
+		endpointConfig := render.EndpointConfig{
+			Mode:          render.EndpointMode(endpointMode),
+			BaseURL:       endpointBaseURL,
+			InferencePath: inferencePath,
+		}
+
+		endpoint := render.InferenceEndpoint(endpointConfig, isvcName, cfg.Testbed.Namespace)
+
+		runner := tp.NewRunner(endpoint.Host, verbose)
 
 		// Warmup
 		fmt.Printf("  Warming up with %d requests...\n", cfg.Throughput.WarmupRequests)
 		if err := runner.Warmup(
-			cmd.Context(), inferenceURL,
+			cmd.Context(), endpoint.URL,
 			cfg.Experiment.Prompt, cfg.Experiment.MaxTokens,
 			cfg.Throughput.WarmupRequests,
 		); err != nil {
@@ -301,7 +332,7 @@ under concurrent load at specified concurrency levels.`,
 			fmt.Printf("\n  ━━━ Concurrency: %d ━━━\n", conc)
 
 			results, err := runner.RunLevel(
-				cmd.Context(), inferenceURL,
+				cmd.Context(), endpoint.URL,
 				cfg.Experiment.Prompt, cfg.Experiment.MaxTokens,
 				conc, cfg.Throughput.ThroughputDuration(),
 			)
@@ -421,7 +452,14 @@ func init() {
 		cmd.Flags().StringVarP(&configPath, "config", "c", "", "Path to YAML config file (required)")
 		cmd.Flags().StringVarP(&outputDir, "output", "o", "results", "Output directory")
 		cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate and print plan without executing")
+		cmd.Flags().StringVarP(&endpointMode, "mode", "m",
+			envOr("ANANSI_ENDPOINT_MODE", "in-cluster"), "Is Anansi running in-cluster | externally")
+		cmd.Flags().StringVarP(&endpointBaseURL, "url", "b",
+			os.Getenv("ANANSI_ENDPOINT_BASE_URL"), "base URL for external mode (NodePort / port-forward)")
+		cmd.Flags().StringVarP(&inferencePath, "inference-path", "i",
+			envOr("ANANSI_INFERENCE_PATH", "/v1/chat/completions"), "runtime inference path")
 		cmd.MarkFlagRequired("config")
+		cmd.MarkFlagRequired("endpoint-mode")
 	}
 
 	for _, cmd := range []*cobra.Command{runCmd, decomposeCmd} {
@@ -500,4 +538,11 @@ func printFinalSummary(summary *output.ExperimentSummary) {
 		}
 	}
 	fmt.Println()
+}
+
+func envOr(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
 }

@@ -21,38 +21,41 @@ import (
 )
 
 type Orchestrator struct {
-	k8sClient    kubernetes.Interface
-	namespace    string
-	podInformer  *instrument.PodInformer
-	eventWatcher *instrument.EventWatcher
-	logParser    *instrument.LogParser
-	resolver     *instrument.Resolver
-	cacheDropper *cachedrop.Client
-	csvWriter    *output.CSVWriter
-	httpClient   *http.Client
-	verbose      bool
+	k8sClient      kubernetes.Interface
+	namespace      string
+	podInformer    *instrument.PodInformer
+	eventWatcher   *instrument.EventWatcher
+	logParser      *instrument.LogParser
+	resolver       *instrument.Resolver
+	cacheDropper   *cachedrop.Client
+	csvWriter      *output.CSVWriter
+	endpointConfig *render.EndpointConfig
+	httpClient     *http.Client
+	verbose        bool
 }
 
 type OrchestratorConfig struct {
-	K8sClient kubernetes.Interface
-	Namespace string
-	OutputDir string
-	Verbose   bool
+	K8sClient      kubernetes.Interface
+	Namespace      string
+	OutputDir      string
+	EndpointConfig render.EndpointConfig
+	Verbose        bool
 }
 
 // New creates a fully wired Orchestrator.
 func New(cfg OrchestratorConfig) *Orchestrator {
 	return &Orchestrator{
-		k8sClient:    cfg.K8sClient,
-		namespace:    cfg.Namespace,
-		podInformer:  instrument.NewPodInformer(cfg.K8sClient, cfg.Namespace),
-		eventWatcher: instrument.NewEventWatcher(cfg.K8sClient, cfg.Namespace),
-		logParser:    instrument.NewLogParser(cfg.K8sClient, cfg.Namespace),
-		resolver:     instrument.NewResolver(),
-		cacheDropper: cachedrop.NewClient(cfg.K8sClient, cfg.Namespace),
-		csvWriter:    output.NewCSVWriter(cfg.OutputDir),
-		httpClient:   &http.Client{Timeout: 5 * time.Minute},
-		verbose:      cfg.Verbose,
+		k8sClient:      cfg.K8sClient,
+		namespace:      cfg.Namespace,
+		podInformer:    instrument.NewPodInformer(cfg.K8sClient, cfg.Namespace),
+		eventWatcher:   instrument.NewEventWatcher(cfg.K8sClient, cfg.Namespace),
+		logParser:      instrument.NewLogParser(cfg.K8sClient, cfg.Namespace),
+		resolver:       instrument.NewResolver(),
+		cacheDropper:   cachedrop.NewClient(cfg.K8sClient, cfg.Namespace),
+		csvWriter:      output.NewCSVWriter(cfg.OutputDir),
+		endpointConfig: &cfg.EndpointConfig,
+		httpClient:     &http.Client{Timeout: 5 * time.Minute},
+		verbose:        cfg.Verbose,
 	}
 }
 
@@ -175,12 +178,12 @@ func (o *Orchestrator) RunTrial(
 	time.Sleep(200 * time.Millisecond)
 
 	// ─── TRIGGER ─────────────────────────────────────────────
-	inferenceURL := o.inferenceURL(trial)
+	endpoint := o.inferenceEndpoint(trial)
 	payload := buildInferencePayload(experiment.Prompt, experiment.MaxTokens)
 
 	t0 := time.Now()
 
-	resp, err := o.sendInferenceRequest(trialCtx, inferenceURL, payload)
+	resp, err := o.sendInferenceRequest(trialCtx, endpoint, payload)
 	if err != nil {
 		cancel() // stop collectors
 		return nil, fmt.Errorf("inference request: %w", err)
@@ -372,32 +375,31 @@ func (o *Orchestrator) getGPUNodeName(ctx context.Context) (string, error) {
 // sendInferenceRequest sends the HTTP POST to the inference endpoint.
 func (o *Orchestrator) sendInferenceRequest(
 	ctx context.Context,
-	url string,
+	endpoint render.Endpoint,
 	payload string,
 ) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url,
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.URL,
 		strings.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	if endpoint.Host != "" {
+		req.Host = endpoint.Host
+	}
 
 	return o.httpClient.Do(req)
 }
 
-// inferenceURL constructs the inference endpoint URL for a trial.
-// KServe exposes the model via Knative route:
-//
-//	http://<isvc-name>.<namespace>.svc.cluster.local/v1/completions
-func (o *Orchestrator) inferenceURL(trial config.TrialConfig) string {
-	isvcName := inferenceServiceName(trial)
-	return fmt.Sprintf("http://%s.%s.svc.cluster.local/v1/completions",
-		isvcName, o.namespace)
+func (o *Orchestrator) inferenceEndpoint(trial config.TrialConfig) render.Endpoint {
+	return render.InferenceEndpoint(
+		*o.endpointConfig,
+		inferenceServiceName(trial),
+		o.namespace,
+	)
 }
 
-// buildInferencePayload creates the JSON body for an OpenAI-compatible
-// completion request.
 func buildInferencePayload(prompt string, maxTokens int) string {
 	return fmt.Sprintf(`{"prompt": %q, "max_tokens": %d}`, prompt, maxTokens)
 }

@@ -18,12 +18,14 @@ import (
 
 type Runner struct {
 	httpClient *http.Client
+	host       string
 	verbose    bool
 }
 
-func NewRunner(verbose bool) *Runner {
+func NewRunner(host string, verbose bool) *Runner {
 	return &Runner{
 		httpClient: &http.Client{Timeout: 2 * time.Minute},
+		host:       host,
 		verbose:    verbose,
 	}
 }
@@ -107,6 +109,10 @@ func (r *Runner) sendRequest(ctx context.Context, url, payload string) RequestRe
 		return result
 	}
 	req.Header.Set("Content-Type", "application/json")
+
+	if r.host != "" {
+		req.Host = r.host
+	}
 
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
