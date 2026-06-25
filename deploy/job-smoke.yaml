@@ -34,12 +34,13 @@ spec:
       containers:
         - name: anansi
           image: ghcr.io/zewolfe/anansi:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           args:
             - "run"
             - "--config=/configs/matrix-smoke.yaml"
             - "--output=/results"
             - "--mode=in-cluster"
+            - "--inference-path=/v1/completions"
             - "-v"
           resources:
             requests:

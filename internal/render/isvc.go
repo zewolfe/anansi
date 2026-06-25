@@ -22,6 +22,8 @@ type PredictorSpec struct {
 	Model              ModelSpec `yaml:"model"`
 	ServiceAccountName string    `yaml:"serviceAccountName,omitempty"`
 	RuntimeClassName   string    `yaml:"runtimeClassName"`
+	MinReplicas        int32     `yaml:"minReplicas"`
+	MaxReplicas        int32     `yaml:"maxReplicas"`
 }
 
 type ModelSpec struct {

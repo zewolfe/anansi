@@ -85,7 +85,8 @@ func InferenceEndpoint(cfg EndpointConfig, isvcName, namespace string) Endpoint 
 	if cfg.InferencePath == "" {
 		path = "/v1/completions"
 	}
-	host := fmt.Sprintf("%s.%s.svc.cluster.local", isvcName, namespace)
+
+	host := fmt.Sprintf("%s-predictor.%s.svc.cluster.local", isvcName, namespace)
 
 	if mode == ModeExternal {
 		return Endpoint{

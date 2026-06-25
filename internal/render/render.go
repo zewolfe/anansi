@@ -66,6 +66,8 @@ func (r *Renderer) Render(cfg *config.BenchConfig) error {
 				Predictor: PredictorSpec{
 					ServiceAccountName: serviceAccountFor(t.Caching),
 					RuntimeClassName:   runtimeClassName,
+					MinReplicas:        0,
+					MaxReplicas:        1,
 					Model: ModelSpec{
 						ModelFormat: ModelFormat{Name: modelFormatFor(t.Format)},
 						Runtime:     runtimeName(t.Runtime),
