@@ -77,7 +77,7 @@ func joinURL(base, path string) (string, error) {
 	return u.String(), nil
 }
 
-func InferenceEndpoint(cfg EndpointConfig, isvcName, namespace string) Endpoint {
+func InferenceEndpoint(cfg EndpointConfig, isvcName, namespace, statusURL string) Endpoint {
 	path := cfg.InferencePath
 	mode := cfg.Mode
 	baseURL := cfg.BaseURL
@@ -87,6 +87,11 @@ func InferenceEndpoint(cfg EndpointConfig, isvcName, namespace string) Endpoint 
 	}
 
 	host := fmt.Sprintf("%s-predictor.%s.svc.cluster.local", isvcName, namespace)
+	if statusURL != "" {
+		if url, err := url.Parse(statusURL); err == nil && url.Host != "" {
+			host = url.Host
+		}
+	}
 
 	if mode == ModeExternal {
 		return Endpoint{

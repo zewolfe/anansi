@@ -96,6 +96,11 @@ number of repetitions. Outputs raw timing data and statistical summaries.`,
 			return fmt.Errorf("creating k8s client: %w", err)
 		}
 
+		dynClient, err := k8s.NewDynamiClient(cfg.Testbed.KubeContext)
+		if err != nil {
+			return fmt.Errorf("failed to create dynamic client: %w", err)
+		}
+
 		endpointConfig := render.EndpointConfig{
 			Mode:          render.EndpointMode(endpointMode),
 			BaseURL:       endpointBaseURL,
@@ -104,6 +109,7 @@ number of repetitions. Outputs raw timing data and statistical summaries.`,
 
 		orch := orchestrator.New(orchestrator.OrchestratorConfig{
 			K8sClient:      k8sClient,
+			DynamicClient:  dynClient,
 			Namespace:      cfg.Testbed.Namespace,
 			OutputDir:      outputDir,
 			EndpointConfig: endpointConfig,
@@ -162,6 +168,11 @@ initialisation, warm-up). Validates that components sum to within 10% of TTFT.`,
 			return fmt.Errorf("creating k8s client: %w", err)
 		}
 
+		dynClient, err := k8s.NewDynamiClient(cfg.Testbed.KubeContext)
+		if err != nil {
+			return fmt.Errorf("failed to create dynamic client: %w", err)
+		}
+
 		endpointConfig := render.EndpointConfig{
 			Mode:          render.EndpointMode(endpointMode),
 			BaseURL:       endpointBaseURL,
@@ -170,6 +181,7 @@ initialisation, warm-up). Validates that components sum to within 10% of TTFT.`,
 
 		orch := orchestrator.New(orchestrator.OrchestratorConfig{
 			K8sClient:      k8sClient,
+			DynamicClient:  dynClient,
 			Namespace:      cfg.Testbed.Namespace,
 			OutputDir:      outputDir,
 			EndpointConfig: endpointConfig,
@@ -238,6 +250,11 @@ prediction P = e^(-λτ).`,
 			return fmt.Errorf("creating k8s client: %w", err)
 		}
 
+		dynClient, err := k8s.NewDynamiClient(cfg.Testbed.KubeContext)
+		if err != nil {
+			return fmt.Errorf("failed to create dynamic client: %w", err)
+		}
+
 		endpointConfig := render.EndpointConfig{
 			Mode:          render.EndpointMode(endpointMode),
 			BaseURL:       endpointBaseURL,
@@ -246,6 +263,7 @@ prediction P = e^(-λτ).`,
 
 		orch := orchestrator.New(orchestrator.OrchestratorConfig{
 			K8sClient:      k8sClient,
+			DynamicClient:  dynClient,
 			Namespace:      cfg.Testbed.Namespace,
 			OutputDir:      outputDir,
 			EndpointConfig: endpointConfig,
@@ -307,13 +325,26 @@ under concurrent load at specified concurrency levels.`,
 		isvcName := fmt.Sprintf("%s-%s",
 			cfg.Throughput.Config.Runtime, cfg.Throughput.Config.Model)
 
+		dynClient, err := k8s.NewDynamiClient(cfg.Testbed.KubeContext)
+		if err != nil {
+			return fmt.Errorf("failed to create dynamic client: %w", err)
+		}
+		statusURL, err := k8s.InferenceServiceClusterURL(
+			cmd.Context(), dynClient, cfg.Testbed.Namespace, isvcName,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to resolve inference endpoint: %w", err)
+		}
+
 		endpointConfig := render.EndpointConfig{
 			Mode:          render.EndpointMode(endpointMode),
 			BaseURL:       endpointBaseURL,
 			InferencePath: inferencePath,
 		}
 
-		endpoint := render.InferenceEndpoint(endpointConfig, isvcName, cfg.Testbed.Namespace)
+		endpoint := render.InferenceEndpoint(
+			endpointConfig, isvcName, cfg.Testbed.Namespace, statusURL,
+		)
 
 		runner := tp.NewRunner(endpoint.Host, verbose)
 

@@ -1,18 +1,19 @@
 package instrument
 
 import (
+	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
-// PodTimestamps holds the raw timestamps captured from K8s events and logs.
+// PodTimestamps holds the raw timestamps captured from K8s events and pod status.
 // Zero-value times indicate the timestamp was not captured.
 type PodTimestamps struct {
 	mu sync.Mutex
@@ -34,7 +35,6 @@ type PodTimestamps struct {
 type PodInformer struct {
 	client    kubernetes.Interface
 	namespace string
-	labels    map[string]string
 }
 
 func NewPodInformer(client kubernetes.Interface, namespace string) *PodInformer {
@@ -44,10 +44,13 @@ func NewPodInformer(client kubernetes.Interface, namespace string) *PodInformer 
 	}
 }
 
-func (pi *PodInformer) WatchPods(timestamps *PodTimestamps, timeout time.Duration) error {
+func (pi *PodInformer) WatchPods(ctx context.Context, timestamps *PodTimestamps, timeout time.Duration, labelSelector string) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	timeOut := int64(timeout.Seconds())
 	tweakListOptions := func(options *metav1.ListOptions) {
-		options.LabelSelector = labels.SelectorFromSet(pi.labels).String()
+		options.LabelSelector = labelSelector
 		options.TimeoutSeconds = &timeOut
 	}
 
@@ -60,37 +63,56 @@ func (pi *PodInformer) WatchPods(timestamps *PodTimestamps, timeout time.Duratio
 
 	informer := factory.Core().V1().Pods().Informer()
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	handle := func(obj any) {
+		if pod, ok := obj.(*corev1.Pod); ok {
+			pi.capture(pod, timestamps)
+
+		}
+	}
+
+	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: handle,
 		UpdateFunc: func(_, obj any) {
-			pod, ok := obj.(*corev1.Pod)
-			if !ok {
-				return
-			}
-			for _, c := range pod.Status.Conditions {
-				if c.Status != corev1.ConditionTrue {
-					continue
-				}
-
-				switch c.Type {
-				case corev1.PodScheduled:
-					timestamps.setIfZero(&timestamps.Scheduled, c.LastTransitionTime.Time)
-				case corev1.ContainersReady:
-					timestamps.setIfZero(&timestamps.ContainersReady, c.LastTransitionTime.Time)
-				}
-			}
-
-			for _, cs := range pod.Status.ContainerStatuses {
-				if cs.Name != "kserve-container" {
-					continue
-				}
-				if cs.State.Running != nil {
-					timestamps.setIfZero(&timestamps.ContainerStart, cs.State.Running.StartedAt.Time)
-				}
-			}
+			handle(obj)
 		},
 	})
+	if err != nil {
+		return fmt.Errorf("ERROR: Failed to add event handler: %w", err)
+	}
+
+	factory.Start(ctx.Done())
+	if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
+		return fmt.Errorf("ERROR: Cache sync failed: %w", err)
+	}
+	<-ctx.Done()
 
 	return nil
+}
+
+func (p *PodInformer) capture(pod *corev1.Pod, ts *PodTimestamps) {
+	for _, c := range pod.Status.Conditions {
+		if c.Status != corev1.ConditionTrue {
+			continue
+		}
+
+		switch c.Type {
+		case corev1.PodScheduled:
+			ts.setIfZero(&ts.Scheduled, c.LastTransitionTime.Time)
+		case corev1.ContainersReady:
+			ts.setIfZero(&ts.ContainersReady, c.LastTransitionTime.Time)
+		}
+	}
+
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Name != "kserve-container" {
+			continue
+		}
+		if cs.State.Running != nil {
+			ts.setIfZero(&ts.ContainerStart, cs.State.Running.StartedAt.Time)
+		}
+	}
+
+	ts.setName(pod.Name, pod.Spec.NodeName)
 }
 
 func (p *PodTimestamps) setIfZero(field *time.Time, timestamp time.Time) bool {
@@ -101,10 +123,21 @@ func (p *PodTimestamps) setIfZero(field *time.Time, timestamp time.Time) bool {
 		return false
 	}
 
-	if !timestamp.IsZero() {
+	if timestamp.IsZero() {
 		return false
 	}
 
 	*field = timestamp
 	return true
+}
+
+func (p *PodTimestamps) setName(podName, nodeName string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.PodName == "" {
+		p.PodName = podName
+	}
+	if p.NodeName == "" && nodeName != "" {
+		p.NodeName = nodeName
+	}
 }

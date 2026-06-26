@@ -11,17 +11,20 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/zewolfe/anansi/internal/cachedrop"
 	"github.com/zewolfe/anansi/internal/config"
 	"github.com/zewolfe/anansi/internal/instrument"
+	"github.com/zewolfe/anansi/internal/k8s"
 	"github.com/zewolfe/anansi/internal/output"
 	"github.com/zewolfe/anansi/internal/render"
 )
 
 type Orchestrator struct {
 	k8sClient      kubernetes.Interface
+	dynamicClient  dynamic.Interface
 	namespace      string
 	podInformer    *instrument.PodInformer
 	eventWatcher   *instrument.EventWatcher
@@ -36,6 +39,7 @@ type Orchestrator struct {
 
 type OrchestratorConfig struct {
 	K8sClient      kubernetes.Interface
+	DynamicClient  dynamic.Interface
 	Namespace      string
 	OutputDir      string
 	EndpointConfig render.EndpointConfig
@@ -46,6 +50,7 @@ type OrchestratorConfig struct {
 func New(cfg OrchestratorConfig) *Orchestrator {
 	return &Orchestrator{
 		k8sClient:      cfg.K8sClient,
+		dynamicClient:  cfg.DynamicClient,
 		namespace:      cfg.Namespace,
 		podInformer:    instrument.NewPodInformer(cfg.K8sClient, cfg.Namespace),
 		eventWatcher:   instrument.NewEventWatcher(cfg.K8sClient, cfg.Namespace),
@@ -163,7 +168,7 @@ func (o *Orchestrator) RunTrial(
 	podInformerDone := make(chan error, 1)
 	go func() {
 		podInformerDone <- o.podInformer.WatchPods(
-			podTS, experiment.Timeout(),
+			trialCtx, podTS, experiment.Timeout(), labelSelector,
 		)
 	}()
 
@@ -178,7 +183,11 @@ func (o *Orchestrator) RunTrial(
 	time.Sleep(200 * time.Millisecond)
 
 	// ─── TRIGGER ─────────────────────────────────────────────
-	endpoint := o.inferenceEndpoint(trial)
+	endpoint, err := o.inferenceEndpoint(trialCtx, trial)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to resolve endpoint: %w", err)
+	}
 	payload := buildInferencePayload(experiment.Prompt, experiment.MaxTokens)
 
 	t0 := time.Now()
@@ -392,12 +401,19 @@ func (o *Orchestrator) sendInferenceRequest(
 	return o.httpClient.Do(req)
 }
 
-func (o *Orchestrator) inferenceEndpoint(trial config.TrialConfig) render.Endpoint {
+func (o *Orchestrator) inferenceEndpoint(ctx context.Context, trial config.TrialConfig) (render.Endpoint, error) {
+	isvcName := inferenceServiceName(trial)
+	statusURL, err := k8s.InferenceServiceClusterURL(ctx, o.dynamicClient, o.namespace, isvcName)
+	if err != nil {
+		return render.Endpoint{}, fmt.Errorf("Error: Failed to get inference status url: %w", err)
+	}
+
 	return render.InferenceEndpoint(
 		*o.endpointConfig,
-		inferenceServiceName(trial),
+		isvcName,
 		o.namespace,
-	)
+		statusURL,
+	), nil
 }
 
 func buildInferencePayload(prompt string, maxTokens int) string {
