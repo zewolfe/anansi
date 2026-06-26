@@ -176,7 +176,7 @@ func (o *Orchestrator) RunTrial(
 	logDone := make(chan error, 1)
 	go func() {
 		logDone <- o.logParser.WaitForPodAndTail(
-			trialCtx, labelSelector, "", runtimeType, podTS, experiment.Timeout())
+			trialCtx, labelSelector, "kserve-container", runtimeType, podTS, experiment.Timeout())
 	}()
 
 	// Brief pause to let watchers initialise
