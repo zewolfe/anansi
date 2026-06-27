@@ -47,8 +47,8 @@ var logPatterns = map[RuntimeType][]LogPattern{
 		{
 			Runtime: RuntimeLlamaCpp,
 			Name:    "server_ready",
-			// llama-server prints: "all slots are idle" when ready to serve
-			Pattern: regexp.MustCompile(`all\s+slots\s+are\s+idle`),
+			// llama-server prints: "all slots are idle" or server is listening on when ready to serve
+			Pattern: regexp.MustCompile(`(?i)(server\s+is\s+listening|all\s+slots\s+are\s+idle)`),
 		},
 	},
 	RuntimeVLLM: {
@@ -122,6 +122,7 @@ func (lp *LogParser) TailAndParse(
 	// Increase buffer for long log lines (vLLM can be verbose)
 	scanner.Buffer(make([]byte, 0, 64*1024), 256*1024)
 
+	firstLine := true
 	for scanner.Scan() {
 		select {
 		case <-ctx.Done():
@@ -131,6 +132,15 @@ func (lp *LogParser) TailAndParse(
 
 		line := scanner.Text()
 		ts := parseK8sLogTimestamp(line)
+
+		if firstLine {
+			firstLine = false
+			select {
+			case matchCh <- LogMatch{Runtime: runtime, Name: "container_log_start", Timestamp: ts, Line: line}:
+			case <-ctx.Done():
+				return nil
+			}
+		}
 
 		for _, pat := range patterns {
 			if pat.Pattern.MatchString(line) {
@@ -184,17 +194,23 @@ func (lp *LogParser) WaitForPodAndTail(
 	for match := range matchCh {
 		timestamps.mu.Lock()
 		switch match.Name {
+		case "container_log_start":
+			if timestamps.ContainerLogStart.IsZero() {
+				timestamps.ContainerLogStart = match.Timestamp
+			}
 		case "model_loaded", "pipelined_loader_done":
 			if timestamps.ModelLoaded.IsZero() {
 				timestamps.ModelLoaded = match.Timestamp
 			}
+		case "server_ready":
+			if timestamps.ServerReady.IsZero() {
+				timestamps.ServerReady = match.Timestamp
+			}
 		}
+		ready := !timestamps.ServerReady.IsZero()
 		timestamps.mu.Unlock()
 
-		timestamps.mu.Lock()
-		isModelLoaded := !timestamps.ModelLoaded.IsZero()
-		timestamps.mu.Unlock()
-		if isModelLoaded {
+		if ready {
 			cancel()
 		}
 	}

@@ -24,7 +24,9 @@ type PodTimestamps struct {
 	ContainerStart  time.Time
 	ContainersReady time.Time
 
-	ModelLoaded time.Time
+	ModelLoaded       time.Time
+	ServerReady       time.Time
+	ContainerLogStart time.Time
 
 	ActivatorReceived time.Time
 

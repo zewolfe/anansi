@@ -58,10 +58,14 @@ func (r *Resolver) Resolve(
 	if !podTS.Scheduled.IsZero() {
 		result.T2 = podTS.Scheduled.UnixNano()
 	}
-	if !podTS.ContainerStart.IsZero() {
+	if !podTS.ContainerLogStart.IsZero() {
+		result.T3 = podTS.ContainerLogStart.UnixNano()
+	} else if !podTS.ContainerStart.IsZero() {
 		result.T3 = podTS.ContainerStart.UnixNano()
 	}
-	if !podTS.ContainersReady.IsZero() {
+	if !podTS.ServerReady.IsZero() {
+		result.T4 = podTS.ServerReady.UnixNano()
+	} else if !podTS.ContainersReady.IsZero() {
 		result.T4 = podTS.ContainersReady.UnixNano()
 	}
 	if !podTS.ModelLoaded.IsZero() {
@@ -151,7 +155,9 @@ func DiagnoseGaps(result *config.TrialResult) []string {
 		curr := timestamps[i]
 		if prev.value != 0 && curr.value != 0 && curr.value < prev.value {
 			issues = append(issues, fmt.Sprintf(
-				"OOPS: %s (%d) is before %s (%d). Possible clock skew (delta: %dms)",
+				"ORDERING: %s (%d) before %s (%d), delta %dms. "+
+					"NOTE: t2/t3/t4 are K8s pod-status timestamps at 1s resolution "+
+					"(metav1.Time) — a sub-second inversion is truncation, not clock skew.",
 				curr.name, curr.value,
 				prev.name, prev.value,
 				(prev.value-curr.value)/1e6,
