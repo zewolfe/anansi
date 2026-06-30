@@ -7,39 +7,94 @@ data:
   manifest.json: |
     [
       {
-        "model_name": "phi3-mini-3.8b",
-        "model_format": "q4_k_m.gguf",
-        "hf_repo": "microsoft/Phi-3-mini-4k-instruct-gguf",
-        "hf_file": "Phi-3-mini-4k-instruct-q4.gguf"
+        "model_name": "qwen3-1.7b",
+        "model_format": "gguf-q4km",
+        "kind": "file",
+        "hf_repo": "Qwen/Qwen3-1.7B-GGUF",
+        "hf_file": "Qwen3-1.7B-Q4_K_M.gguf"
       },
       {
-          "model_name": "phi3-mini-3.8b",
-          "model_format": "q8_0.gguf",
-          "hf_repo": "bartowski/Phi-3-mini-4k-instruct-GGUF",
-          "hf_file": "Phi-3-mini-4k-instruct-Q8_0.gguf"
-        },
-        {
-          "model_name": "llama3-8b",
-          "model_format": "q4_k_m.gguf",
-          "hf_repo": "bartowski/Meta-Llama-3-8B-Instruct-GGUF",
-          "hf_file": "Meta-Llama-3-8B-Instruct-Q4_K_M.gguf"
-        },
-        {
-          "model_name": "llama3-8b",
-          "model_format": "q8_0.gguf",
-          "hf_repo": "bartowski/Meta-Llama-3-8B-Instruct-GGUF",
-          "hf_file": "Meta-Llama-3-8B-Instruct-Q8_0.gguf"
-        },
-        {
-          "model_name": "llama2-13b",
-          "model_format": "q4_k_m.gguf",
-          "hf_repo": "TheBloke/Llama-2-13B-chat-GGUF",
-          "hf_file": "llama-2-13b-chat.Q4_K_M.gguf"
-        },
-        {
-          "model_name": "llama2-13b",
-          "model_format": "q8_0.gguf",
-          "hf_repo": "TheBloke/Llama-2-13B-chat-GGUF",
-          "hf_file": "llama-2-13b-chat.Q8_0.gguf"
-        }
+        "model_name": "qwen3-1.7b",
+        "model_format": "gguf-q8",
+        "kind": "file",
+        "hf_repo": "Qwen/Qwen3-1.7B-GGUF",
+        "hf_file": "Qwen3-1.7B-Q8_0.gguf"
+      },
+      {
+        "model_name": "qwen3-4b",
+        "model_format": "gguf-q4km",
+        "kind": "file",
+        "hf_repo": "Qwen/Qwen3-4B-GGUF",
+        "hf_file": "Qwen3-4B-Q4_K_M.gguf"
+      },
+      {
+        "model_name": "qwen3-4b",
+        "model_format": "gguf-q8",
+        "kind": "file",
+        "hf_repo": "Qwen/Qwen3-4B-GGUF",
+        "hf_file": "Qwen3-4B-Q8_0.gguf"
+      },
+      {
+        "model_name": "qwen3-8b",
+        "model_format": "gguf-q4km",
+        "kind": "file",
+        "hf_repo": "Qwen/Qwen3-8B-GGUF",
+        "hf_file": "Qwen3-8B-Q4_K_M.gguf"
+      },
+      {
+        "model_name": "qwen3-8b",
+        "model_format": "gguf-q8",
+        "kind": "file",
+        "hf_repo": "Qwen/Qwen3-8B-GGUF",
+        "hf_file": "Qwen3-8B-Q8_0.gguf"
+      },
+      {
+        "model_name": "qwen3-32b",
+        "model_format": "gguf-q4km",
+        "kind": "file",
+        "hf_repo": "Qwen/Qwen3-32B-GGUF",
+        "hf_file": "Qwen3-32B-Q4_K_M.gguf"
+      },
+      {
+        "model_name": "qwen3-1.7b",
+        "model_format": "safetensors-fp16",
+        "kind": "dir",
+        "hf_repo": "Qwen/Qwen3-1.7B"
+      },
+      {
+        "model_name": "qwen3-4b",
+        "model_format": "safetensors-fp16",
+        "kind": "dir",
+        "hf_repo": "Qwen/Qwen3-4B"
+      },
+      {
+        "model_name": "qwen3-8b",
+        "model_format": "safetensors-fp16",
+        "kind": "dir",
+        "hf_repo": "Qwen/Qwen3-8B"
+      },
+      {
+        "model_name": "qwen3-1.7b",
+        "model_format": "awq-int4",
+        "kind": "dir",
+        "hf_repo": "Qwen/Qwen3-1.7B-AWQ"
+      },
+      {
+        "model_name": "qwen3-4b",
+        "model_format": "awq-int4",
+        "kind": "dir",
+        "hf_repo": "Qwen/Qwen3-4B-AWQ"
+      },
+      {
+        "model_name": "qwen3-8b",
+        "model_format": "awq-int4",
+        "kind": "dir",
+        "hf_repo": "Qwen/Qwen3-8B-AWQ"
+      },
+      {
+        "model_name": "qwen3-32b",
+        "model_format": "awq-int4",
+        "kind": "dir",
+        "hf_repo": "Qwen/Qwen3-32B-AWQ"
+      }
     ]

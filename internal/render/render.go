@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/zewolfe/anansi/internal/config"
@@ -73,11 +74,7 @@ func (r *Renderer) Render(cfg *config.BenchConfig) error {
 						Runtime:     runtimeName(t.Runtime),
 						StorageUri:  StorageURI(t.Format.Name, t.Model.Name, t.Scenario.Name),
 						//TODO:Support VLLM ENV VARIABLES
-						Env: []EnvVar{
-							{Name: "ANANSI_LOADER", Value: t.Runtime.Loader},
-							{Name: "ANANSI_LOADER_ARGS", Value: t.Runtime.LoaderArgs},
-							{Name: "MODEL_PATH", Value: ModelPath(t.Format.Name, t.Model.Name, t.Scenario.Name)},
-						},
+						Env: buildRuntimeEnv(t),
 						Resources: &Resources{
 							Limits: map[string]string{"nvidia.com/gpu": "1"},
 						},
@@ -95,6 +92,25 @@ func (r *Renderer) Render(cfg *config.BenchConfig) error {
 	}
 
 	return nil
+}
+
+func buildRuntimeEnv(t config.TrialConfig) []EnvVar {
+	env := []EnvVar{
+		{Name: "ANANSI_LOADER", Value: t.Runtime.Loader},
+		{Name: "ANANSI_LOADER_ARGS", Value: t.Runtime.LoaderArgs},
+		{Name: "MODEL_PATH", Value: ModelPath(t.Format.Name, t.Model.Name, t.Scenario.Name)},
+	}
+
+	keys := make([]string, 0, len(t.Runtime.Env))
+	for k := range t.Runtime.Env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		env = append(env, EnvVar{Name: k, Value: t.Runtime.Env[k]})
+	}
+
+	return env
 }
 
 func (r *Renderer) SaveRender(isvcKey string, isvc ISVC) error {
@@ -151,8 +167,16 @@ func sanitiseK8sName(name string) string {
 	return name
 }
 
+func isLMCScenario(scenario string) bool {
+	return strings.HasPrefix(scenario, "s2-lmc") || strings.HasPrefix(scenario, "s3-lmc")
+}
+
+func isMultiFileFormat(format string) bool {
+	return !strings.HasPrefix(format, "gguf-")
+}
+
 func StorageURI(format, model, scenario string) string {
-	if strings.HasPrefix(scenario, "s2-lmc") || strings.HasPrefix(scenario, "s3-lmc") {
+	if isLMCScenario(scenario) {
 		return "pvc://models-cache"
 	}
 
@@ -160,8 +184,12 @@ func StorageURI(format, model, scenario string) string {
 }
 
 func ModelPath(format, model, scenario string) string {
-	if strings.HasPrefix(scenario, "s2-lmc") || strings.HasPrefix(scenario, "s3-lmc") {
+	if isLMCScenario(scenario) {
 		return fmt.Sprintf("/mnt/models/%s/%s", model, format)
+	}
+
+	if isMultiFileFormat(format) {
+		return "/mnt/models"
 	}
 
 	return fmt.Sprintf("/mnt/models/%s", format)

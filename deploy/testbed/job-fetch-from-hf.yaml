@@ -27,25 +27,46 @@ spec:
               python -m pip install --no-cache-dir huggingface_hub hf_transfer
               mc alias set bench http://$MINIO_ENDPOINT $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
               mc mb bench/models --ignore-existing
+
               jq -c '.[]' /etc/config/manifest.json | while read -r model; do 
                 name=$(jq -r '.model_name' <<< "$model")
-                model_format=$(jq -r '.model_format' <<< "$model")
-                hf_repo=$(jq -r '.hf_repo' <<< "$model")
-                hf_file=$(jq -r '.hf_file' <<< "$model")
-                if mc stat bench/models/$name/$model_format >/dev/null 2>&1; then
-                    echo "already present, skipping"
-                    continue
+                fmt=$(jq -r '.model_format' <<< "$model")
+                kind=$(jq -r '.kind' <<< "$model")
+                repo=$(jq -r '.hf_repo' <<< "$model")
+                file=$(jq -r '.hf_file' <<< "$model")
+                dest="bench/models/$name/$fmt"
+
+                if [ "$kind" = "dir" ]; then
+                  if [ -n "$(mc ls "$dest/" 2>/dev/null || true)" ]; then
+                      echo "[$name/$fmt] already present, skipping"
+                      continue
+                  fi
+
+                  work="/work/$name-$fmt"; rm -rf "$work"; mkdir -p "$work"
+                  hf download "$repo" --local-dir "$work" --exclude "original/*" "*.pth" "*.pt"
+                  mc cp -r "$work/" "$dest/"
+                  rm -rf "$work"
+                  echo "[$name/$fmt] uploaded snapshot of $repo"
+                else
+                  file=$(jq -r '.hf_file' <<< "$model")
+                  if mc stat "$dest" >/dev/null 2>&1; then
+                      echo "[$name/$fmt] already present, skipping"
+                      continue
+                  fi
+
+                  hf download "$repo" "$file" --local-dir /work
+                  mc cp /work/$file "$dest"
+                  local_size=$(stat -c%s /work/$file)
+                  remote_size=$(mc stat --json "$dest" | jq -r '.size')
+                  if [ "$local_size" != "$remote_size" ]; then
+                      echo "ERROR: size mismatch local=$local_size remote=$remote_size"
+                      exit 1
+                  fi
+                  rm -rf "/work/$file"
+                  echo "[$name/$fmt] uploaded $file from $repo"
                 fi
-                hf download "$hf_repo" "$hf_file" --local-dir /work 
-                mc cp /work/$hf_file bench/models/$name/$model_format
-                local_size=$(stat -c%s /work/$hf_file)
-                remote_size=$(mc stat --json bench/models/$name/$model_format | jq -r '.size')
-                if [ "$local_size" != "$remote_size" ]; then
-                    echo "ERROR: size mismatch local=$local_size remote=$remote_size"
-                    exit 1
-                fi
-                rm -rf /work/$hf_file
               done
+              echo "COMPLETE"
           env:
             - name: HF_TOKEN
               valueFrom:
@@ -70,7 +91,7 @@ spec:
       volumes:
         - name: models-cache
           emptyDir:
-            sizeLimit: "80Gi"
+            sizeLimit: "120Gi"
         - name: models-manifest
           configMap:
             name: models-manifest
