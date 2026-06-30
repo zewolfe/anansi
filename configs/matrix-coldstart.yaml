@@ -1,0 +1,77 @@
+testbed:
+  namespace: kserve-bench
+  gpu_device: "nvidia.com/gpu"
+  minio_endpoint: http://minio.default:9000
+  minio_bucket: models
+
+matrix:
+  runtimes:
+    - name: llamacpp-default
+      image: ghcr.io/zewolfe/kserve-llamacpp:latest
+      runtime_class: ClusterServingRuntime/llamacpp
+      loader: default
+
+    - name: vllm-default
+      image: kserve/vllm-inference-server:latest
+
+    - name: vllm-faststart
+      image: kserve/vllm-inference-server:latest
+      env:
+        PYTORCH_COMPILE: "0"
+        VLLM_NUM_CUDA_GRAPHS: "4"
+        VLLM_COMPILE_CACHE_DIR: "/mnt/compile-cache"
+
+  formats:
+    - name: safetensors-fp16
+      path: "s3://models/{model}/safetensors-fp16"
+    - name: awq-int4
+      path: "s3://models/{model}/awq-int4"
+    - name: gguf-q8
+      path: "s3://models/{model}/gguf-q8"
+    - name: gguf-q4km
+      path: "s3://models/{model}/gguf-q4km"
+
+  models:
+    - name: qwen3-1.7b
+      size_gb: 3.8
+    - name: qwen3-4b
+      size_gb: 8.0
+    - name: qwen3-8b
+      size_gb: 16.4
+    - name: qwen3-32b
+      size_gb: 65.5
+
+  caching:
+    - name: remote
+      local_model_cache: false
+    - name: lmc
+      local_model_cache: true
+
+  scenarios:
+    - name: s1-remote-cold
+      caching: remote
+      drop_page_cache: true
+    - name: s2-lmc-cold
+      caching: lmc
+      drop_page_cache: true
+    - name: s3-lmc-warm
+      caching: lmc
+      drop_page_cache: false
+
+  exclusions:
+    - runtime: "vllm-*"
+      format: "gguf-*"
+    - runtime: "llamacpp-*"
+      format: "safetensors-fp16"
+    - runtime: "llamacpp-*"
+      format: "awq-int4"
+    - runtime: "vllm-*"
+      format: "safetensors-fp16"
+      model: "qwen3-32b"
+
+experiment:
+  repetitions: 10
+  cooldown_seconds: 30
+  timeout_seconds: 300
+  prompt: "Hello"
+  max_tokens: 1

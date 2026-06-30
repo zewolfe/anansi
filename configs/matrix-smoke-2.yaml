@@ -1,0 +1,37 @@
+testbed:
+  namespace: kserve-bench
+  gpu_device: "nvidia.com/gpu"
+  minio_endpoint: http://minio.default:9000
+  minio_bucket: models
+  kube_context: ""
+
+matrix:
+  runtimes:
+    - name: llamacpp-default
+      image: ghcr.io/zewolfe/kserve-llamacpp:latest
+      runtime_class: ClusterServingRuntime/llamacpp
+      loader: default
+
+  formats:
+    - name: gguf-q4km
+      path: "s3://models/{model}/gguf-q4km"
+
+  models:
+    - name: phi3-mini-3.8b
+      size_gb: 7.6
+
+  caching:
+    - name: remote
+      local_model_cache: false
+
+  scenarios:
+    - name: s1-remote-cold
+      caching: remote
+      drop_page_cache: true
+
+experiment:
+  repetitions: 1
+  cooldown_seconds: 10
+  timeout_seconds: 300
+  prompt: "Hello"
+  max_tokens: 1

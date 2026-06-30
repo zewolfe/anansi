@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kserve-bench-s3
+  namespace: kserve-bench
+secrets:
+  - name: kserve-bench-s3-creds

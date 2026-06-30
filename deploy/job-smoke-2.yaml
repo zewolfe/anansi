@@ -1,0 +1,100 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: anansi-smoke-s1-config
+  namespace: kserve-bench
+data:
+  smoke-s1.yaml: |
+    testbed:
+      namespace: kserve-bench
+      gpu_device: "nvidia.com/gpu"
+      minio_endpoint: http://minio.default:9000
+      minio_bucket: models
+    matrix:
+      runtimes:
+        - name: llamacpp-default
+          image: ghcr.io/zewolfe/kserve-llamacpp:latest
+          runtime_class: ClusterServingRuntime/llamacpp
+          loader: default
+      formats:
+        - name: gguf-q4km
+          path: "s3://models/{model}/gguf-q4km"
+      models:
+        - name: phi3-mini-3.8b
+          size_gb: 7.6
+      caching:
+        - name: remote
+          local_model_cache: false
+      scenarios:
+        - name: s1-remote-cold
+          caching: remote
+          drop_page_cache: true
+    experiment:
+      repetitions: 1
+      cooldown_seconds: 10
+      timeout_seconds: 300
+      prompt: "Hello"
+      max_tokens: 1
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: anansi-smoke-s1-results
+  namespace: kserve-bench
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: anansi-smoke-s1
+  namespace: kserve-bench
+spec:
+  backoffLimit: 0 # never silently retry a benchmark
+  completions: 1
+  parallelism: 1
+  ttlSecondsAfterFinished: 600 # auto-GC 10 min after finish
+  activeDeadlineSeconds: 900 # hard ceiling: 1 trial + remote pull <= 15 min
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: anansi
+        app.kubernetes.io/part-of: anansi
+        app.kubernetes.io/component: smoke-s1
+    spec:
+      serviceAccountName: anansi-bench # from deploy/rbac.yaml (harness API access)
+      restartPolicy: Never
+      containers:
+        - name: anansi
+          image: ghcr.io/zewolfe/anansi:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - "run"
+            - "--config=/configs/smoke-s1.yaml"
+            - "--output=/results"
+            - "--mode=in-cluster"
+            - "--inference-path=/v1/completions"
+            - "-v"
+          resources:
+            requests:
+              cpu: "1"
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /configs
+            - name: results
+              mountPath: /results
+      volumes:
+        - name: config
+          configMap:
+            name: anansi-smoke-s1-config
+        - name: results
+          persistentVolumeClaim:
+            claimName: anansi-smoke-s1-results
